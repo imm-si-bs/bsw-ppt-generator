@@ -228,7 +228,9 @@ Each uploaded file produces a text block appended to the user message:
 ## API configuration
 
 const LITELLM_ENDPOINT = 'https://litellm.sparkai.brightlysoftware.io';
+
 const LITELLM_API_KEY  = 'your-key-here';   // ⚠️ visible in browser — see security note
+
 const MODEL_NAME       = 'sparkai-developer-claude';
 
 Security note: The API key is visible in the HTML source, same as the KB
@@ -247,7 +249,9 @@ step, no CI, no configuration — index.html is served directly.
 These are fetched at page load:
 
 const AGENT_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/bsw-ppt-builder.md';
+
 const SKILL_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/SKILL.md';
+
 const BRAND_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/BSWBRANDING.md';
 
 These URLs only resolve after content is pushed to main. During local
@@ -281,5 +285,7 @@ assets/ images — only used by the local Python build
 Brightly Theme.pptx — local template only
 Any file containing secrets, credentials, or personal data
 
+# Future Iterations: 
+- the bsw-ppt-builder.md agent, BSWBRANDING.md skill, and SKILL.md skill will adapt to creating powerpoints specific to Brightly, but not specific to the LST Global Monthly Meeting powerpoint. That is just the focus of this first iteration.
 
 ---
