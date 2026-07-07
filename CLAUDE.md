@@ -167,7 +167,7 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
 }
 ```
 
-Supported body.format values:
+## Supported body.format values:
 
 "bullets" — plain bullet list
 "table" — data table (metrics slide)
@@ -175,46 +175,48 @@ Supported body.format values:
 "nps_names" — 3-column name list, first names in green
 "two_columns" — birthdays left, anniversaries right
 "numbered" — numbered list
-PptxGenJS rendering rules
+
+## PptxGenJS rendering rules
 PptxGenJS is a JavaScript library that mirrors the bswppt.py library's output.
 It must implement the same branding rules:
 
-Rule	Value
-Background	#003359 (Nightly Blue) for all content/section slides
-Cover/closing bg	Green gradient (image1.png — hosted in assets/ or CDN)
-Accent color	#45FF9B (Brightly Green)
-Secondary accent	#17BDBF (Teal)
-Headline font	Calibri, bold, 22–26pt, white
-Kicker font	Calibri, bold, 11pt, #45FF9B
-Body font	Calibri, 11–13pt, #B0B8C8 (gray)
-Section divider (green)	green: true in JSON → bg #45FF9B, text #003359
-No emojis	Strip any emoji from Claude output before rendering
-No card grids	Agenda and content slides use bullets/table only
-Metrics delta colors	Green run if at/above target, red run if below
-Form fields
-Section A — The Basics
-Field	Required	Notes
-Topic / rough title	✅	e.g. "July 2026 LST Meeting"
-PowerPoint type	✅	"LST Monthly Global Support Team Meeting" or "Other"
-Section B — The Content
-Field	Required	Notes
-What should this deck cover?	✅	Free-text: goals, themes, anything Claude should prioritize
-Raw notes / transcripts	✅	Dump field: paste text, meeting notes, anything
-File uploads	optional	.txt, .md, .csv, .docx, .pptx — all read client-side
-Instructions for each file	optional	Per-file text box: "this CSV is the metrics data", etc.
-Section C — Metadata (future iteration)
+Rule	| Value
+Background |	#003359 (Nightly Blue) for all content/section slides
+Cover/closing bg	| Green gradient (image1.png — hosted in assets/ or CDN)
+Accent color |	#45FF9B (Brightly Green)
+Secondary accent |	#17BDBF (Teal)
+Headline font |	Calibri, bold, 22–26pt, white
+Kicker font |	Calibri, bold, 11pt, #45FF9B
+Body font |	Calibri, 11–13pt, #B0B8C8 (gray)
+Section divider (green) |	green: true in JSON → bg #45FF9B, text #003359
+No emojis |	Strip any emoji from Claude output before rendering
+No card grids |	Agenda and content slides use bullets/table only
+Metrics delta colors |	Green run if at/above target, red run if below
+
+## Form fields
+### Section A — The Basics
+Field |	Required | Notes
+Topic / rough title |	✅ |	e.g. "July 2026 LST Meeting"
+PowerPoint type |	✅ |	"LST Monthly Global Support Team Meeting" or "Other"
+### Section B — The Content
+Field |	Required | Notes
+What should this deck cover? | ✅ |	Free-text: goals, themes, anything Claude should prioritize
+Raw notes / transcripts |	✅ |	Dump field: paste text, meeting notes, anything
+File uploads |	optional |	.txt, .md, .csv, .docx, .pptx — all read client-side
+Instructions for each file |	✅ |	Per-file text box: "this CSV is the metrics data", etc.
+### Section C — Metadata (future iteration)
 Not in v1. Will include: presenter name, month/year, tags, existing deck URL.
 
-File upload handling
+## File upload handling
 All file reading happens in the browser (FileReader API). No file ever leaves
 the browser except as text in the API request body.
 
-Extension	How it's read
-.txt, .md	readAsText — full contents
-.csv	readAsText — full contents
-.docx	mammoth.js (CDN) → extracts plain text
-.pptx	JSZip (CDN) → extracts slide XML → strips tags → plain text
-.pdf	PDF.js (CDN) → extracts text per page
+Extension |	How it's read
+.txt, .md |	readAsText — full contents
+.csv |	readAsText — full contents
+.docx |	mammoth.js (CDN) → extracts plain text
+.pptx |	JSZip (CDN) → extracts slide XML → strips tags → plain text
+.pdf |	PDF.js (CDN) → extracts text per page
 Each uploaded file produces a text block appended to the user message:
 
 
@@ -222,42 +224,45 @@ Each uploaded file produces a text block appended to the user message:
 [user's instruction for this file, if provided]
 ━━━ CONTENT ━━━
 [extracted text]
-API configuration
+
+## API configuration
 
 const LITELLM_ENDPOINT = 'https://litellm.sparkai.brightlysoftware.io';
 const LITELLM_API_KEY  = 'your-key-here';   // ⚠️ visible in browser — see security note
 const MODEL_NAME       = 'sparkai-developer-claude';
+
 Security note: The API key is visible in the HTML source, same as the KB
 Article Writer. This is acceptable for an internal tool used by a known team.
 Do not publish this repo publicly if you want to keep the key private — or use
 a LiteLLM key scoped to this model only with a low spend limit.
 
-GitHub Pages deployment
+## GitHub Pages deployment
 The web app is served via GitHub Pages from the root of the main branch.
 URL: https://imm-si-bs.github.io/bsw-ppt-generator/
 
 To deploy: push to main. GitHub Pages updates within ~60 seconds. No build
 step, no CI, no configuration — index.html is served directly.
 
-Raw GitHub URLs used by the web app
+## Raw GitHub URLs used by the web app
 These are fetched at page load:
-
 
 const AGENT_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/bsw-ppt-builder.md';
 const SKILL_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/SKILL.md';
 const BRAND_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/BSWBRANDING.md';
+
 These URLs only resolve after content is pushed to main. During local
 development, use the local file contents as hardcoded fallbacks.
 
-Keeping .claude/ in sync
+## Keeping .claude/ in sync
 The agent and skill files live in two places:
 
 This repo (source of truth for the web app)
 ~/.claude/ (where Claude Code reads them locally)
-To sync repo → local after editing:
 
-On Windows: run sync-to-claude.bat from the repo root (copy/paste the bat below)
-Or manually copy the three files
+### To sync repo → local after editing: 
+
+1. On Windows: run sync-to-claude.bat from the repo root (copy/paste the bat below)
+2. Or manually copy the three files
 
 :: sync-to-claude.bat
 @echo off
@@ -266,10 +271,11 @@ copy /Y "skills\bsw-ppt\SKILL.md" "%USERPROFILE%\.claude\skills\bsw-ppt\SKILL.md
 copy /Y "skills\bsw-ppt\BSWBRANDING.md" "%USERPROFILE%\.claude\skills\bsw-ppt\BSWBRANDING.md"
 echo Done. Claude Code is now using the updated files.
 pause
+
 Add sync-to-claude.bat to the repo root. Double-click it after editing
 agent/skill files to keep Claude Code in sync.
 
-What NOT to put in this repo
+## What NOT to put in this repo
 bswppt.py — Python library, only runs locally
 assets/ images — only used by the local Python build
 Brightly Theme.pptx — local template only
