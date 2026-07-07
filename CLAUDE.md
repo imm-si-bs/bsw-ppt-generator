@@ -165,6 +165,8 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
     }
   ]
 }
+```
+
 Supported body.format values:
 
 "bullets" — plain bullet list
