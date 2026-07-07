@@ -1,6 +1,6 @@
 ---
 name: bsw-ppt-builder
-description: Builds the Brightly-branded LST Monthly Global Support Team Meeting PowerPoint deck from raw source material. Accepts meeting transcripts (.txt/.md/.docx), a metrics CSV (regional KPIs), and presenter notes. Produces a .pptx with all standard sections filled — General Updates, Process Reminders, Career Pathing, Monthly Metrics, Shout Outs, Celebrations, What's Coming — plus rendered PNG proofs of every slide.
+description: Builds the Brightly-branded LST Monthly Global Support Team Meeting PowerPoint deck from raw source material. Accepts meeting transcripts (.txt/.md/.docx), a metrics CSV (regional KPIs), and presenter notes. Produces a .pptx with all standard sections filled — General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming — plus rendered PNG proofs of every slide.
 tools: Bash, Read, Write, Edit, Glob, Grep
 model: sonnet
 skills:
@@ -54,8 +54,6 @@ Write a Python build script that:
 | 4–N | General Updates | `content_slide` per topic — company news, recurring processes, AI/tools, SFDC changes, survey data |
 | N+1 | Section divider: Process Reminders | `section_slide` — blue variant |
 | N+2 | Process Reminders | `content_slide` — one bullet per reminder |
-| N+3 | Section divider: Career Pathing | `section_slide` — blue variant (omit if no content) |
-| N+4–M | Career Pathing slides | `content_slide` — role tables, definitions, what's next |
 | M+1 | Section divider: Metrics | `section_slide` — blue variant |
 | M+2 | Monthly Metrics table | `content_slide` with `table` — regional KPIs (see schema below) |
 | M+3 | Section divider: Shout Outs | `section_slide` — **green variant** (`green=True`) |
@@ -74,8 +72,7 @@ Write a Python build script that:
 s = d.content_slide("", [("Coming up...", C.GREEN)])
 # Then build a plain text box with bullet points using python-pptx directly:
 # - font: Calibri 22pt white, bullet char "•"
-# - 7 items: General Updates, Process Reminders, Global Support Career Pathing Update,
-#   Monthly Metrics, Shout Outs, Celebrations, What's Coming
+# - 6 items: General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming
 d.finish(s)
 
 ```

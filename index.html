@@ -602,24 +602,22 @@ The JSON schema:
 
 Fixed deck section order (follow exactly):
 1. title_slide
-2. Agenda content_slide (format: bullets, 7 items: General Updates, Process Reminders, Global Support Career Pathing Update, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
+2. Agenda content_slide (format: bullets, 6 items: General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
 3. section_slide General Updates (green: false)
 4. content_slide(s) for General Updates
 5. section_slide Process Reminders (green: false)
 6. content_slide for Process Reminders
-7. section_slide Career Pathing (green: false, omit if no content)
-8. content_slide(s) for Career Pathing
-9. section_slide Monthly Metrics (green: false)
-10. content_slide for Metrics table (format: table)
-11. section_slide Shout Outs (green: true)
-12. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
-13. content_slide for NPS 10s (format: nps_names)
-14. section_slide Celebrations (green: true)
-15. content_slide for Birthdays & Anniversaries (format: two_columns)
-16. section_slide What's Coming (green: false)
-17. content_slide for What's Coming (format: bullets)
-18. closing_slide Questions?
-19. closing_slide Thank You
+7. section_slide Monthly Metrics (green: false)
+8. content_slide for Metrics table (format: table)
+9. section_slide Shout Outs (green: true)
+10. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
+11. content_slide for NPS 10s (format: nps_names)
+12. section_slide Celebrations (green: true)
+13. content_slide for Birthdays & Anniversaries (format: two_columns)
+14. section_slide What's Coming (green: false)
+15. content_slide for What's Coming (format: bullets)
+16. closing_slide Questions?
+17. closing_slide Thank You
 
 Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
 Each cell value: "value\\ndelta" — delta prefixed with + or -
@@ -1062,11 +1060,17 @@ function buildContentSlide(pptx, s, num) {
 /* ── Bullets / Numbered ─────────────────────────────────── */
 function buildBullets(slide, s, pptx, numbered) {
   const items = s.body?.items ?? [];
-  const rows = items.map((item, i) => {
-    const prefix = numbered ? `${i+1}.  ` : '•  ';
-    return { text: prefix + item, options: { fontSize: 13, color: C.GRAY, fontFace: 'Calibri', paraSpaceAfter: 4 } };
+  // Each item needs breakLine:true so PptxGenJS emits a paragraph break,
+  // not an inline run — without it all items render on one line.
+  const runs = [];
+  items.forEach((item, i) => {
+    const prefix = numbered ? `${i + 1}.  ` : '•  ';
+    runs.push({
+      text: prefix + item,
+      options: { fontSize: 13, color: C.GRAY, fontFace: 'Calibri', breakLine: true, paraSpaceAfter: 6 },
+    });
   });
-  slide.addText(rows, {
+  slide.addText(runs, {
     x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW, h: DIM.BODY_H,
     valign: 'top', wrap: true,
   });
@@ -1144,10 +1148,15 @@ function buildKudos(slide, s, pptx) {
     cols[ci].forEach(item => {
       const firstName = (item.name || '').split(/[\s,]/)[0];
       const rest      = (item.name || '').slice(firstName.length);
+      // Name line: first name (green) + rest of name, then breakLine to start new paragraph
       textArr.push(
         { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 13, fontFace: 'Calibri' } },
-        { text: rest + '\n', options: { bold: false, color: C.WHITE, fontSize: 13, fontFace: 'Calibri' } },
-        { text: (item.quote || '') + '\n\n', options: { color: C.GRAY, fontSize: 11, fontFace: 'Calibri', italic: true } },
+        { text: rest,      options: { bold: false, color: C.WHITE, fontSize: 13, fontFace: 'Calibri', breakLine: true } },
+      );
+      // Quote line, then blank line via breakLine
+      textArr.push(
+        { text: (item.quote || ''), options: { color: C.GRAY, fontSize: 11, fontFace: 'Calibri', italic: true, breakLine: true } },
+        { text: '',                 options: { fontSize: 6, breakLine: true } }, // spacer
       );
     });
     slide.addText(textArr, {
@@ -1172,9 +1181,10 @@ function buildNpsNames(slide, s, pptx) {
     cols[ci].forEach(name => {
       const firstName = String(name).split(/[\s,]/)[0];
       const rest      = String(name).slice(firstName.length);
+      // breakLine on the last run of each name forces a new paragraph per person
       textArr.push(
         { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 12, fontFace: 'Calibri' } },
-        { text: rest + '\n', options: { color: C.WHITE, fontSize: 12, fontFace: 'Calibri' } },
+        { text: rest,      options: { color: C.WHITE, fontSize: 12, fontFace: 'Calibri', breakLine: true } },
       );
     });
     slide.addText(textArr, {
@@ -1194,13 +1204,13 @@ function buildTwoColumns(slide, s, pptx) {
 
   const buildCol = (header, items, color) => {
     const arr = [
-      { text: header + '\n', options: { bold: true, color, fontSize: 14, fontFace: 'Calibri' } },
+      { text: header, options: { bold: true, color, fontSize: 14, fontFace: 'Calibri', breakLine: true } },
     ];
     items.forEach(item => {
-      arr.push({ text: '• ' + item + '\n', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri' } });
+      arr.push({ text: '• ' + item, options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', breakLine: true, paraSpaceAfter: 4 } });
     });
     if (!items.length) {
-      arr.push({ text: 'None this month\n', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', italic: true } });
+      arr.push({ text: 'None this month', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', italic: true, breakLine: true } });
     }
     return arr;
   };
