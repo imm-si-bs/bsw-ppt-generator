@@ -311,9 +311,11 @@ Add sync-to-claude.bat to the repo root. Double-click it after editing
 agent/skill files to keep Claude Code in sync.
 
 ## What NOT to put in this repo
-bswppt.py — Python library, only runs locally
-assets/ images — only used by the local Python build
-Brightly Theme.pptx — local template only
+- API keys, passwords, tokens of any kind
+- `.env` files
+- bswppt.py — Python library, only runs locally
+- assets/ images — only used by the local Python build
+- Brightly Theme.pptx — local template only
 Any file containing secrets, credentials, or personal data
 
 # Future Iterations: 
