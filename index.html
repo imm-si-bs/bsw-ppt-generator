@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BSW PPT Generator</title>
+
+  <!-- CDN libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --navy:   #000028;
+      --teal:   #009999;
+      --teal-lt:#e0f5f5;
+      --green:  #45FF9B;
+      --amber:  #7a4f00;
+      --amber-bg:#fffbea;
+      --amber-border:#e8a800;
+      --bg:     #F3F3F0;
+      --white:  #ffffff;
+      --border: #d4d4ce;
+      --gray:   #6b6b6b;
+      --gray-lt:#9e9e9e;
+      --danger: #d32f2f;
+      --danger-bg:#fdecea;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+
+    /* ── Base ───────────────────────────────────────────────── */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: #1a1a1a;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--navy);
+      color: var(--white);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-icon {
+      width: 32px; height: 32px;
+      background: var(--teal);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .header-title { font-size: 18px; font-weight: 600; }
+    .header-sub   { font-size: 12px; color: #a0b0c0; }
+    .header-badge {
+      background: transparent;
+      border: 1.5px solid var(--teal);
+      color: var(--teal);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ── Warning banner ─────────────────────────────────────── */
+    .banner {
+      border-left: 4px solid var(--amber-border);
+      background: var(--amber-bg);
+      color: var(--amber);
+      padding: 14px 32px;
+      font-size: 13px;
+    }
+    .banner strong { font-weight: 700; }
+
+    /* ── Prompt loader status ───────────────────────────────── */
+    #prompt-status {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 32px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.loading { background: #f0a500; animation: pulse 1s infinite; }
+    .dot.ok      { background: #2e7d32; }
+    .dot.error   { background: var(--danger); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Main layout ─────────────────────────────────────────── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ── Form card ───────────────────────────────────────────── */
+    .form-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    /* ── Section header ─────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 22px 28px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      width: 34px; height: 34px; min-width: 34px;
+      background: var(--teal);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      margin-top: 2px;
+    }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .section-sub   { font-size: 13px; color: var(--gray); }
+
+    /* ── Fields ─────────────────────────────────────────────── */
+    .fields {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    label .req { color: var(--danger); margin-left: 2px; }
+    label .opt { color: var(--gray-lt); font-weight: 400; font-size: 12px; margin-left: 4px; }
+
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: var(--white);
+      transition: border-color .15s;
+      outline: none;
+    }
+    input[type="text"]:focus,
+    select:focus,
+    textarea:focus  { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,153,153,.12); }
+    textarea        { resize: vertical; }
+    input.error, select.error, textarea.error {
+      border-color: var(--danger);
+    }
+    .field-error {
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 2px;
+    }
+
+    /* ── File upload zone ───────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      background: #fafafa;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--teal);
+      background: var(--teal-lt);
+    }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-icon { font-size: 28px; margin-bottom: 8px; }
+    .upload-text { font-size: 13px; color: var(--gray); }
+    .upload-text strong { color: var(--teal); }
+    .upload-exts { font-size: 11px; color: var(--gray-lt); margin-top: 4px; }
+
+    /* ── File chips ─────────────────────────────────────────── */
+    #file-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+    .file-chip {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: var(--white);
+    }
+    .file-chip-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .file-chip-name {
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-chip-size {
+      font-size: 11px;
+      color: var(--gray-lt);
+    }
+    .file-chip-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--gray);
+      font-size: 16px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .file-chip-remove:hover { color: var(--danger); }
+    .file-chip textarea {
+      font-size: 12.5px;
+      padding: 7px 10px;
+    }
+    .file-chip .status-line {
+      font-size: 11px;
+      color: var(--teal);
+      margin-top: 4px;
+    }
+
+    /* ── Generate button ─────────────────────────────────────── */
+    .generate-wrap {
+      text-align: center;
+      padding: 10px 0 0;
+    }
+    #generate-btn {
+      background: var(--navy);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      padding: 14px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    #generate-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    #generate-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    #generate-btn.loading .spinner { display: block; }
+    #generate-btn.loading .btn-icon { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error box ───────────────────────────────────────────── */
+    .error-box {
+      background: var(--danger-bg);
+      border: 1px solid #f5c2c2;
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-top: 20px;
+      color: var(--danger);
+      font-size: 13px;
+      display: none;
+    }
+    .error-box pre {
+      margin-top: 10px;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow: auto;
+      background: #fff0f0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    /* ── Output section ─────────────────────────────────────── */
+    #output-section {
+      display: none;
+      margin-top: 28px;
+      animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    .output-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      box-shadow: var(--shadow);
+    }
+    .output-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .output-sub {
+      font-size: 13px;
+      color: var(--gray);
+      margin-bottom: 18px;
+    }
+    #download-btn {
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+      border-radius: 7px;
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity .15s;
+    }
+    #download-btn:hover { opacity: .85; }
+
+    details.json-debug {
+      margin-top: 20px;
+    }
+    details.json-debug summary {
+      font-size: 12px;
+      color: var(--gray);
+      cursor: pointer;
+      user-select: none;
+    }
+    details.json-debug pre {
+      margin-top: 10px;
+      font-size: 11.5px;
+      background: #f6f6f4;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 400px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="header-icon">📊</div>
+    <div>
+      <div class="header-title">BSW PPT Generator</div>
+      <div class="header-sub">LST Global Support · Brightly Software</div>
+    </div>
+  </div>
+  <div class="header-badge">AI-assisted · Review before distributing</div>
+</header>
+
+<!-- ─── PROMPT STATUS ─────────────────────────────────────── -->
+<div id="prompt-status">
+  <span class="dot loading" id="status-dot"></span>
+  <span id="status-text">Loading agent &amp; skill files…</span>
+</div>
+
+<!-- ─── WARNING BANNER ────────────────────────────────────── -->
+<div class="banner">
+  <strong>All decks require review before sharing.</strong>
+  Check all content for accuracy before distributing to the team.
+</div>
+
+<!-- ─── MAIN ──────────────────────────────────────────────── -->
+<main>
+
+  <!-- SECTION A -->
+  <div class="form-card">
+    <div class="section-header">
+      <div class="badge">A</div>
+      <div>
+        <div class="section-title">The Basics</div>
+        <div class="section-sub">What this deck is and what it covers</div>
+      </div>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <label for="topic">Topic or rough title <span class="req">*</span></label>
+        <input type="text" id="topic" placeholder="e.g. July 2026 LST Global Support Team Meeting" />
+        <div class="field-error" id="topic-err"></div>
+      </div>
+      <div class="field">
+        <label for="ppt-type">PowerPoint type <span class="req">*</span></label>
+        <select id="ppt-type">
+          <option value="LST Monthly Global Support Team Meeting">LST Monthly Global Support Team Meeting</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION B -->
+  <div class="form-card">
+    <div class="section-header">
+      <div class="badge">B</div>
+      <div>
+        <div class="section-title">The Content</div>
+        <div class="section-sub">Paste your raw notes — the agent will clean them up and structure them into the correct template</div>
+      </div>
+    </div>
+    <div class="fields">
+
+      <div class="field">
+        <label for="goals">What should this deck cover? <span class="req">*</span></label>
+        <textarea id="goals" rows="3"
+          placeholder="Describe goals, themes, or anything Claude should prioritize. e.g. &quot;We had a big NPS win in APAC — make sure that's highlighted.&quot;"></textarea>
+        <div class="field-error" id="goals-err"></div>
+      </div>
+
+      <div class="field">
+        <label for="raw-notes">Raw notes, transcripts, or anything <span class="req">*</span></label>
+        <textarea id="raw-notes" rows="8"
+          placeholder="Dump everything here — meeting notes, bullets, copied emails, anything."></textarea>
+        <div class="field-error" id="notes-err"></div>
+      </div>
+
+      <!-- File upload -->
+      <div class="field">
+        <label>File uploads <span class="opt">(optional)</span></label>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input"
+            accept=".txt,.md,.csv,.docx,.pptx,.pdf"
+            multiple />
+          <div class="upload-icon">📎</div>
+          <div class="upload-text">
+            <strong>Click to browse</strong> or drag &amp; drop files here
+          </div>
+          <div class="upload-exts">.txt · .md · .csv · .docx · .pptx · .pdf · up to 12,000 chars each</div>
+        </div>
+        <div id="file-list"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Error box -->
+  <div class="error-box" id="error-box">
+    <strong>Error</strong> — <span id="error-msg"></span>
+    <pre id="error-detail"></pre>
+  </div>
+
+  <!-- Generate button -->
+  <div class="generate-wrap">
+    <button id="generate-btn" disabled>
+      <span class="btn-icon">✦</span>
+      <span class="spinner"></span>
+      <span id="btn-label">Generate Deck</span>
+    </button>
+  </div>
+
+  <!-- Output section -->
+  <div id="output-section">
+    <div class="output-card">
+      <div class="output-title">✅ Deck ready</div>
+      <div class="output-sub" id="output-sub">Your PowerPoint has been built and is ready to download.</div>
+      <button id="download-btn">⬇ Download .pptx</button>
+      <details class="json-debug">
+        <summary>Show raw JSON (debug)</summary>
+        <pre id="json-preview"></pre>
+      </details>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════ */
+const LITELLM_ENDPOINT = 'https://litellm.sparkai.brightlysoftware.io';
+const LITELLM_API_KEY  = 'sk-IMQ6FQy6MgCEQV8MlNKL3w';
+const MODEL_NAME       = 'sparkai-developer-claude';
+const TEMPERATURE      = 0.3;
+const MAX_TOKENS       = 4096;
+const MAX_CHARS        = 12000;
+
+const AGENT_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/bsw-ppt-builder.md';
+const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/SKILL.md';
+const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/BSWBRANDING.md';
+
+/* PDF.js worker */
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let systemPrompt = null;
+let uploadedFiles = []; // {file, name, size, text, instruction}
+let lastJson = null;
+
+/* ═══════════════════════════════════════════════════════════
+   SYSTEM PROMPT LOADER
+═══════════════════════════════════════════════════════════ */
+async function loadSystemPrompt() {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+
+  const fetchOne = async (url, label) => {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Failed to fetch ${label} (${r.status})`);
+    return r.text();
+  };
+
+  try {
+    text.textContent = 'Loading agent & skill files…';
+    dot.className = 'dot loading';
+
+    const [agent, skill, brand] = await Promise.all([
+      fetchOne(AGENT_URL, 'bsw-ppt-builder.md'),
+      fetchOne(SKILL_URL, 'SKILL.md'),
+      fetchOne(BRAND_URL, 'BSWBRANDING.md'),
+    ]);
+
+    systemPrompt = [agent, skill, brand].join('\n\n---\n\n') + `
+
+---
+
+IMPORTANT CONSTRAINT: You cannot run Python or use bswppt.py here.
+Return ONLY a valid JSON object matching the schema below. No prose, no markdown fences, no explanation — just raw JSON.
+
+The JSON schema:
+{
+  "meta": {
+    "title": "...",
+    "footer_author": "LST Global Support",
+    "footer_dept": "SUPPORT OPS",
+    "footer_date": "YYYY-MM"
+  },
+  "slides": [
+    // Each slide is one of: title_slide, content_slide, section_slide, closing_slide
+    // title_slide:   { "type": "title_slide", "title": "...", "subtitle": "..." }
+    // section_slide: { "type": "section_slide", "title": "...", "green": false }
+    // closing_slide: { "type": "closing_slide", "title": "..." }
+    // content_slide: { "type": "content_slide", "kicker": "...", "headline": "...",
+    //   "body": { "format": "bullets"|"table"|"kudos"|"nps_names"|"two_columns"|"numbered",
+    //     ... format-specific fields ... } }
+    //
+    // content_slide body formats:
+    // bullets:     { "format": "bullets", "items": ["..."] }
+    // numbered:    { "format": "numbered", "items": ["..."] }
+    // table:       { "format": "table", "headers": ["..."], "rows": [["...","..."]] }
+    // kudos:       { "format": "kudos", "items": [{"name":"...","quote":"..."}] }
+    // nps_names:   { "format": "nps_names", "items": ["First Last"] }
+    // two_columns: { "format": "two_columns", "left_header": "...", "left_items": ["..."], "right_header": "...", "right_items": ["..."] }
+  ]
+}
+
+Fixed deck section order (follow exactly):
+1. title_slide
+2. Agenda content_slide (format: bullets, 7 items: General Updates, Process Reminders, Global Support Career Pathing Update, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
+3. section_slide General Updates (green: false)
+4. content_slide(s) for General Updates
+5. section_slide Process Reminders (green: false)
+6. content_slide for Process Reminders
+7. section_slide Career Pathing (green: false, omit if no content)
+8. content_slide(s) for Career Pathing
+9. section_slide Monthly Metrics (green: false)
+10. content_slide for Metrics table (format: table)
+11. section_slide Shout Outs (green: true)
+12. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
+13. content_slide for NPS 10s (format: nps_names)
+14. section_slide Celebrations (green: true)
+15. content_slide for Birthdays & Anniversaries (format: two_columns)
+16. section_slide What's Coming (green: false)
+17. content_slide for What's Coming (format: bullets)
+18. closing_slide Questions?
+19. closing_slide Thank You
+
+Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
+Each cell value: "value\\ndelta" — delta prefixed with + or -
+Regions: NA, Noida, EMEA, APAC, All
+
+STRICT RULES:
+- No emojis anywhere in the JSON output.
+- No card grids — agenda is bullets only.
+- Create placeholder content for any section with no source data (never omit a section).
+- Return raw JSON only. Nothing else.`;
+
+    dot.className = 'dot ok';
+    text.textContent = 'Agent & skill files loaded — ready to generate.';
+    document.getElementById('generate-btn').disabled = false;
+
+  } catch (err) {
+    dot.className = 'dot error';
+    text.textContent = 'Failed to load agent/skill files: ' + err.message;
+    showError('Could not load agent or skill files from GitHub. Check your connection and try refreshing.', err.message);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILE UPLOAD
+═══════════════════════════════════════════════════════════ */
+const uploadZone = document.getElementById('upload-zone');
+const fileInput  = document.getElementById('file-input');
+const fileList   = document.getElementById('file-list');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+  Array.from(files).forEach(f => {
+    if (uploadedFiles.find(u => u.name === f.name)) return; // skip dupes
+    const entry = { file: f, name: f.name, size: f.size, text: null, instruction: '' };
+    uploadedFiles.push(entry);
+    renderFileChip(entry);
+    extractText(entry);
+  });
+  fileInput.value = '';
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(1) + ' MB';
+}
+
+function renderFileChip(entry) {
+  const chip = document.createElement('div');
+  chip.className = 'file-chip';
+  chip.id = 'chip-' + entry.name;
+  chip.innerHTML = `
+    <div class="file-chip-header">
+      <span class="file-chip-name">${escHtml(entry.name)}</span>
+      <span class="file-chip-size">${formatBytes(entry.size)}</span>
+      <button class="file-chip-remove" title="Remove file">✕</button>
+    </div>
+    <textarea rows="2"
+      placeholder="Tell Claude how to use this file — e.g. &quot;This CSV is the monthly metrics data&quot; or &quot;These are the weekly transcripts from the past month&quot;"
+    ></textarea>
+    <div class="status-line" id="status-${entry.name}">⏳ Extracting text…</div>
+  `;
+  chip.querySelector('.file-chip-remove').addEventListener('click', () => {
+    uploadedFiles = uploadedFiles.filter(u => u.name !== entry.name);
+    chip.remove();
+  });
+  chip.querySelector('textarea').addEventListener('input', e => {
+    entry.instruction = e.target.value;
+  });
+  fileList.appendChild(chip);
+}
+
+function setFileStatus(name, msg) {
+  const el = document.getElementById('status-' + name);
+  if (el) el.textContent = msg;
+}
+
+async function extractText(entry) {
+  const ext = entry.name.split('.').pop().toLowerCase();
+  try {
+    let text = '';
+    if (ext === 'txt' || ext === 'md' || ext === 'csv') {
+      text = await readAsText(entry.file);
+    } else if (ext === 'docx') {
+      const ab = await readAsArrayBuffer(entry.file);
+      const result = await mammoth.extractRawText({ arrayBuffer: ab });
+      text = result.value;
+    } else if (ext === 'pptx') {
+      text = await extractPptxText(entry.file);
+    } else if (ext === 'pdf') {
+      text = await extractPdfText(entry.file);
+    } else {
+      text = '[Unsupported file type]';
+    }
+
+    let truncated = false;
+    if (text.length > MAX_CHARS) {
+      text = text.slice(0, MAX_CHARS);
+      truncated = true;
+    }
+    entry.text = text;
+    setFileStatus(entry.name, truncated
+      ? `✅ Extracted ${MAX_CHARS.toLocaleString()} chars (truncated — file was larger)`
+      : `✅ Extracted ${text.length.toLocaleString()} chars`);
+  } catch (err) {
+    entry.text = '[Error extracting text: ' + err.message + ']';
+    setFileStatus(entry.name, '⚠️ Extraction failed: ' + err.message);
+  }
+}
+
+function readAsText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsText(file);
+  });
+}
+function readAsArrayBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+async function extractPptxText(file) {
+  const ab = await readAsArrayBuffer(file);
+  const zip = await JSZip.loadAsync(ab);
+  let text = '';
+  const slideFiles = Object.keys(zip.files)
+    .filter(n => n.match(/^ppt\/slides\/slide[0-9]+\.xml$/))
+    .sort();
+  for (const sf of slideFiles) {
+    const xml = await zip.files[sf].async('string');
+    const stripped = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    text += stripped + '\n';
+  }
+  return text;
+}
+
+async function extractPdfText(file) {
+  const ab = await readAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORM VALIDATION
+═══════════════════════════════════════════════════════════ */
+function validate() {
+  let ok = true;
+  const setErr = (id, errId, msg) => {
+    const el = document.getElementById(id);
+    const er = document.getElementById(errId);
+    if (!el.value.trim()) {
+      el.classList.add('error');
+      er.textContent = msg;
+      ok = false;
+    } else {
+      el.classList.remove('error');
+      er.textContent = '';
+    }
+  };
+  setErr('topic',     'topic-err', 'Please enter a topic or title.');
+  setErr('goals',     'goals-err', 'Please describe what this deck should cover.');
+  setErr('raw-notes', 'notes-err', 'Please paste your raw notes or transcripts.');
+  return ok;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILD USER MESSAGE
+═══════════════════════════════════════════════════════════ */
+function buildUserMessage() {
+  const topic    = document.getElementById('topic').value.trim();
+  const pptType  = document.getElementById('ppt-type').value;
+  const goals    = document.getElementById('goals').value.trim();
+  const rawNotes = document.getElementById('raw-notes').value.trim();
+
+  let msg = `Topic: ${topic}
+Deck type: ${pptType}
+
+What this deck should cover:
+${goals}
+
+Raw notes / transcripts:
+${rawNotes}`;
+
+  for (const entry of uploadedFiles) {
+    if (entry.text === null) continue; // still extracting
+    msg += `\n\n━━━ FILE: ${entry.name} ━━━`;
+    if (entry.instruction.trim()) {
+      msg += `\n${entry.instruction.trim()}`;
+    }
+    msg += `\n━━━ CONTENT ━━━\n${entry.text}`;
+  }
+
+  return msg;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STRIP EMOJI
+═══════════════════════════════════════════════════════════ */
+function stripEmoji(str) {
+  return str.replace(
+    /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F1E0}-\u{1F1FF}]/gu,
+    ''
+  );
+}
+
+function deepStripEmoji(obj) {
+  const json = JSON.stringify(obj);
+  return JSON.parse(stripEmoji(json));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   API CALL
+═══════════════════════════════════════════════════════════ */
+async function callAPI(userMessage) {
+  const resp = await fetch(`${LITELLM_ENDPOINT}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LITELLM_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MODEL_NAME,
+      temperature: TEMPERATURE,
+      max_tokens: MAX_TOKENS,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userMessage },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`API error ${resp.status}: ${body}`);
+  }
+
+  const data = await resp.json();
+  const raw  = data.choices?.[0]?.message?.content ?? '';
+  return raw;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PARSE JSON FROM RESPONSE
+═══════════════════════════════════════════════════════════ */
+function parseJson(raw) {
+  // Strip markdown fences if Claude added them despite instructions
+  let s = raw.trim();
+  s = s.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+  return JSON.parse(s);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PPTXGENJS SLIDE BUILDERS
+═══════════════════════════════════════════════════════════ */
+
+/* Colors */
+const C = {
+  NIGHTLY: '003359',
+  WHITE:   'FFFFFF',
+  GREEN:   '45FF9B',
+  TEAL:    '17BDBF',
+  GRAY:    'B0B8C8',
+  RED:     'FF4444',
+};
+
+/* Shared dims */
+const DIM = {
+  W:  13.333,
+  H:  7.5,
+  ML: 0.70,
+  CW: 11.93,
+  KICKER_Y:  0.36,
+  HEAD_Y:    0.70,
+  BODY_Y:    1.85,
+  BODY_H:    4.70,
+  FOOTER_Y:  6.97,
+  LOGO_X:   12.50,
+  LOGO_Y:    6.80,
+  LOGO_W:    0.60,
+  LOGO_H:    0.38,
+};
+
+function addFooter(slide, slideNum) {
+  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
+    x: DIM.ML, y: DIM.FOOTER_Y, w: 5, h: 0.18,
+    fontSize: 7.5, color: C.GRAY, fontFace: 'Calibri',
+  });
+  if (slideNum != null) {
+    slide.addText(String(slideNum), {
+      x: 0.22, y: DIM.FOOTER_Y, w: 0.28, h: 0.18,
+      fontSize: 7.5, color: C.GRAY, fontFace: 'Calibri',
+    });
+  }
+}
+
+function addWordmark(slide) {
+  // Brightly wordmark placeholder — white text badge (no image asset in browser)
+  slide.addText('brightly', {
+    x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H,
+    fontSize: 7, color: C.GRAY, fontFace: 'Calibri', italic: true,
+    align: 'right',
+  });
+}
+
+/* ── Title slide ─────────────────────────────────────────── */
+function buildTitleSlide(pptx, s) {
+  const slide = pptx.addSlide();
+  // Green gradient background (solid teal as proxy — no image in browser)
+  slide.background = { color: '2a9e7c' };
+
+  // Decorative accent bar top
+  slide.addShape(pptx.ShapeType.rect, {
+    x: 0, y: 0, w: DIM.W, h: 0.06, fill: { color: C.GREEN },
+  });
+
+  slide.addText(s.title || 'Monthly Global Support Team Meeting', {
+    x: 0.80, y: 2.20, w: 11.70, h: 1.80,
+    fontSize: 54, bold: true, color: C.NIGHTLY,
+    fontFace: 'Calibri', align: 'center', wrap: true, valign: 'middle',
+  });
+
+  if (s.subtitle) {
+    slide.addText(s.subtitle, {
+      x: 0.80, y: 4.20, w: 11.70, h: 0.60,
+      fontSize: 20, color: C.NIGHTLY, fontFace: 'Calibri',
+      align: 'center',
+    });
+  }
+
+  // Footer wordmark area
+  slide.addText('brightly', {
+    x: 0.64, y: 6.34, w: 2.0, h: 0.40,
+    fontSize: 11, color: C.NIGHTLY, fontFace: 'Calibri', italic: true, bold: true,
+  });
+  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
+    x: 8, y: DIM.FOOTER_Y, w: 5, h: 0.18,
+    fontSize: 7.5, color: C.NIGHTLY, fontFace: 'Calibri', align: 'right',
+  });
+}
+
+/* ── Section divider ─────────────────────────────────────── */
+function buildSectionSlide(pptx, s, num) {
+  const slide = pptx.addSlide();
+  const isGreen = !!s.green;
+  const bg   = isGreen ? C.GREEN   : C.NIGHTLY;
+  const fg   = isGreen ? C.NIGHTLY : C.WHITE;
+
+  slide.background = { color: bg };
+
+  slide.addText(s.title || '', {
+    x: DIM.ML, y: 1.80, w: DIM.CW, h: 3.60,
+    fontSize: 40, bold: true, color: fg,
+    fontFace: 'Calibri', align: 'left', valign: 'middle', wrap: true,
+  });
+
+  addWordmark(slide);
+}
+
+/* ── Closing slide ───────────────────────────────────────── */
+function buildClosingSlide(pptx, s) {
+  const slide = pptx.addSlide();
+  slide.background = { color: '2a9e7c' };
+
+  slide.addShape(pptx.ShapeType.rect, {
+    x: 0, y: 0, w: DIM.W, h: 0.06, fill: { color: C.GREEN },
+  });
+
+  slide.addText(s.title || 'Thank You', {
+    x: 0.80, y: 2.00, w: 11.70, h: 3.00,
+    fontSize: 80, bold: true, color: C.NIGHTLY,
+    fontFace: 'Calibri', align: 'center', valign: 'middle', wrap: true,
+  });
+
+  slide.addText('brightly', {
+    x: 0.64, y: 6.34, w: 2.0, h: 0.40,
+    fontSize: 11, color: C.NIGHTLY, fontFace: 'Calibri', italic: true, bold: true,
+  });
+  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
+    x: 8, y: DIM.FOOTER_Y, w: 5, h: 0.18,
+    fontSize: 7.5, color: C.NIGHTLY, fontFace: 'Calibri', align: 'right',
+  });
+}
+
+/* ── Content slide — dispatcher ─────────────────────────── */
+function buildContentSlide(pptx, s, num) {
+  const slide = pptx.addSlide();
+  slide.background = { color: C.NIGHTLY };
+
+  // Kicker
+  if (s.kicker) {
+    slide.addText(s.kicker.toUpperCase(), {
+      x: DIM.ML, y: DIM.KICKER_Y, w: DIM.CW, h: 0.28,
+      fontSize: 11, bold: true, color: C.GREEN,
+      fontFace: 'Calibri',
+    });
+  }
+
+  // Headline
+  if (s.headline) {
+    slide.addText(s.headline, {
+      x: DIM.ML, y: DIM.HEAD_Y, w: DIM.CW, h: 0.90,
+      fontSize: 24, bold: true, color: C.WHITE,
+      fontFace: 'Calibri', wrap: true,
+    });
+  }
+
+  // Body
+  const fmt = s.body?.format;
+  if (fmt === 'bullets' || fmt === 'numbered') buildBullets(slide, s, pptx, fmt === 'numbered');
+  else if (fmt === 'table')      buildTable(slide, s, pptx);
+  else if (fmt === 'kudos')      buildKudos(slide, s, pptx);
+  else if (fmt === 'nps_names')  buildNpsNames(slide, s, pptx);
+  else if (fmt === 'two_columns') buildTwoColumns(slide, s, pptx);
+
+  addFooter(slide, num);
+  addWordmark(slide);
+}
+
+/* ── Bullets / Numbered ─────────────────────────────────── */
+function buildBullets(slide, s, pptx, numbered) {
+  const items = s.body?.items ?? [];
+  const rows = items.map((item, i) => {
+    const prefix = numbered ? `${i+1}.  ` : '•  ';
+    return { text: prefix + item, options: { fontSize: 13, color: C.GRAY, fontFace: 'Calibri', paraSpaceAfter: 4 } };
+  });
+  slide.addText(rows, {
+    x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW, h: DIM.BODY_H,
+    valign: 'top', wrap: true,
+  });
+}
+
+/* ── Table (Metrics) ─────────────────────────────────────── */
+function buildTable(slide, s, pptx) {
+  const headers = s.body?.headers ?? [];
+  const rows    = s.body?.rows    ?? [];
+  if (!headers.length) return;
+
+  // Target values per column for coloring deltas
+  const targets = [70, 95, 95, 95, 70, 70]; // Util, Phone, Chat, Email, FCR, NPS
+
+  const colW = [1.10, 1.74, 1.74, 1.74, 1.74, 1.10, 1.10];
+  const tableRows = [];
+
+  // Header row
+  tableRows.push(headers.map(h => ({
+    text: h,
+    options: {
+      bold: true, fontSize: 10, color: C.NIGHTLY, fill: { color: C.GREEN },
+      valign: 'middle', align: 'center',
+    },
+  })));
+
+  // Data rows
+  rows.forEach(row => {
+    tableRows.push(row.map((cell, ci) => {
+      if (ci === 0) {
+        // Region label
+        return {
+          text: cell,
+          options: { bold: true, fontSize: 10, color: C.WHITE, fill: { color: '004a7c' }, align: 'center', valign: 'middle' },
+        };
+      }
+      // Parse value\ndelta
+      const parts = String(cell).split('\n');
+      const val   = parts[0] ?? '';
+      const delta = parts[1] ?? '';
+      const deltaNum = parseFloat(delta.replace(/[+%]/g, ''));
+      const isGood   = !isNaN(deltaNum) && deltaNum >= 0;
+      const deltaColor = delta ? (isGood ? '2e7d32' : 'c62828') : C.GRAY;
+
+      return {
+        text: [
+          { text: val + '\n',   options: { fontSize: 11, bold: true, color: C.WHITE } },
+          { text: delta,         options: { fontSize: 9,  bold: false, color: deltaColor } },
+        ],
+        options: { fill: { color: '003f6b' }, align: 'center', valign: 'middle' },
+      };
+    }));
+  });
+
+  slide.addTable(tableRows, {
+    x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW,
+    colW: colW,
+    rowH: 0.55,
+    border: { type: 'solid', pt: 0.5, color: '004a7c' },
+  });
+}
+
+/* ── Kudos (3 columns) ───────────────────────────────────── */
+function buildKudos(slide, s, pptx) {
+  const items = s.body?.items ?? [];
+  const cols  = [[], [], []];
+  items.forEach((it, i) => cols[i % 3].push(it));
+
+  const colX = [DIM.ML, DIM.ML + 4.07, DIM.ML + 8.14];
+  const colW = 3.80;
+
+  colX.forEach((x, ci) => {
+    if (!cols[ci].length) return;
+    const textArr = [];
+    cols[ci].forEach(item => {
+      const firstName = (item.name || '').split(/[\s,]/)[0];
+      const rest      = (item.name || '').slice(firstName.length);
+      textArr.push(
+        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 13, fontFace: 'Calibri' } },
+        { text: rest + '\n', options: { bold: false, color: C.WHITE, fontSize: 13, fontFace: 'Calibri' } },
+        { text: (item.quote || '') + '\n\n', options: { color: C.GRAY, fontSize: 11, fontFace: 'Calibri', italic: true } },
+      );
+    });
+    slide.addText(textArr, {
+      x, y: DIM.BODY_Y, w: colW, h: DIM.BODY_H,
+      valign: 'top', wrap: true,
+    });
+  });
+}
+
+/* ── NPS Names (3 columns) ───────────────────────────────── */
+function buildNpsNames(slide, s, pptx) {
+  const items = s.body?.items ?? [];
+  const cols  = [[], [], []];
+  items.forEach((name, i) => cols[i % 3].push(name));
+
+  const colX = [DIM.ML, DIM.ML + 4.07, DIM.ML + 8.14];
+  const colW = 3.80;
+
+  colX.forEach((x, ci) => {
+    if (!cols[ci].length) return;
+    const textArr = [];
+    cols[ci].forEach(name => {
+      const firstName = String(name).split(/[\s,]/)[0];
+      const rest      = String(name).slice(firstName.length);
+      textArr.push(
+        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 12, fontFace: 'Calibri' } },
+        { text: rest + '\n', options: { color: C.WHITE, fontSize: 12, fontFace: 'Calibri' } },
+      );
+    });
+    slide.addText(textArr, {
+      x, y: DIM.BODY_Y, w: colW, h: DIM.BODY_H,
+      valign: 'top', wrap: true,
+    });
+  });
+}
+
+/* ── Two columns (Birthdays / Anniversaries) ─────────────── */
+function buildTwoColumns(slide, s, pptx) {
+  const body = s.body ?? {};
+  const leftH  = body.left_header  ?? 'Birthdays';
+  const rightH = body.right_header ?? 'Anniversaries';
+  const leftI  = body.left_items   ?? [];
+  const rightI = body.right_items  ?? [];
+
+  const buildCol = (header, items, color) => {
+    const arr = [
+      { text: header + '\n', options: { bold: true, color, fontSize: 14, fontFace: 'Calibri' } },
+    ];
+    items.forEach(item => {
+      arr.push({ text: '• ' + item + '\n', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri' } });
+    });
+    if (!items.length) {
+      arr.push({ text: 'None this month\n', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', italic: true } });
+    }
+    return arr;
+  };
+
+  slide.addText(buildCol(leftH, leftI, C.GREEN), {
+    x: DIM.ML, y: DIM.BODY_Y, w: 5.70, h: DIM.BODY_H,
+    valign: 'top', wrap: true,
+  });
+  slide.addText(buildCol(rightH, rightI, C.TEAL), {
+    x: DIM.ML + 6.00, y: DIM.BODY_Y, w: 5.70, h: DIM.BODY_H,
+    valign: 'top', wrap: true,
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PPTX BUILD ORCHESTRATOR
+═══════════════════════════════════════════════════════════ */
+function buildPptx(deckJson) {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5 in
+
+  const slides = deckJson.slides ?? [];
+  let contentNum = 1;
+
+  slides.forEach(s => {
+    switch (s.type) {
+      case 'title_slide':   buildTitleSlide(pptx, s);                  break;
+      case 'section_slide': buildSectionSlide(pptx, s, contentNum);    break;
+      case 'closing_slide': buildClosingSlide(pptx, s);                break;
+      case 'content_slide': buildContentSlide(pptx, s, contentNum++);  break;
+    }
+  });
+
+  return pptx;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ERROR HELPERS
+═══════════════════════════════════════════════════════════ */
+function showError(msg, detail) {
+  const box = document.getElementById('error-box');
+  document.getElementById('error-msg').textContent    = msg;
+  document.getElementById('error-detail').textContent = detail || '';
+  document.getElementById('error-detail').style.display = detail ? 'block' : 'none';
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('error-box').style.display = 'none';
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GENERATE HANDLER
+═══════════════════════════════════════════════════════════ */
+document.getElementById('generate-btn').addEventListener('click', async () => {
+  hideError();
+  document.getElementById('output-section').style.display = 'none';
+
+  if (!validate()) return;
+
+  if (!systemPrompt) {
+    showError('Agent/skill files not loaded yet. Please wait for the status bar to show "ready".');
+    return;
+  }
+
+  // Check no files are still extracting
+  const pending = uploadedFiles.filter(f => f.text === null);
+  if (pending.length) {
+    showError('Please wait — still extracting text from: ' + pending.map(f => f.name).join(', '));
+    return;
+  }
+
+  const btn = document.getElementById('generate-btn');
+  const lbl = document.getElementById('btn-label');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  lbl.textContent = 'Generating…';
+
+  try {
+    const userMsg = buildUserMessage();
+    const raw     = await callAPI(userMsg);
+
+    let deckJson;
+    try {
+      deckJson = parseJson(raw);
+    } catch (e) {
+      showError('Claude returned invalid JSON. Raw response shown below.', raw);
+      return;
+    }
+
+    // Strip emoji from all string values
+    deckJson = deepStripEmoji(deckJson);
+    lastJson = deckJson;
+
+    // Build and offer download
+    const pptx = buildPptx(deckJson);
+
+    const topic    = document.getElementById('topic').value.trim();
+    const meta     = deckJson.meta ?? {};
+    const dateStr  = meta.footer_date ?? new Date().toISOString().slice(0, 7);
+    const safeTopic = topic.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+    const filename = `LST-Monthly-BSW-${dateStr}-${safeTopic}.pptx`;
+
+    // Store download handler
+    document.getElementById('download-btn').onclick = () => {
+      pptx.writeFile({ fileName: filename });
+    };
+
+    document.getElementById('output-sub').textContent =
+      `${(deckJson.slides ?? []).length} slides built — ${filename}`;
+    document.getElementById('json-preview').textContent =
+      JSON.stringify(deckJson, null, 2);
+
+    const out = document.getElementById('output-section');
+    out.style.display = 'block';
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    showError('Generation failed: ' + err.message, err.stack ?? '');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    lbl.textContent = 'Generate Deck';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════ */
+loadSystemPrompt();
+</script>
+</body>
+</html>
