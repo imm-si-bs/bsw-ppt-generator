@@ -447,22 +447,22 @@
       <div class="badge">B</div>
       <div>
         <div class="section-title">The Content</div>
-        <div class="section-sub">Paste your raw notes — the agent will clean them up and structure them into the correct template</div>
+        <div class="section-sub">Tell Claude what to cover, then optionally paste raw source material — meeting notes, emails, transcripts</div>
       </div>
     </div>
     <div class="fields">
 
       <div class="field">
         <label for="goals">What should this deck cover? <span class="req">*</span></label>
-        <textarea id="goals" rows="3"
-          placeholder="Describe goals, themes, or anything Claude should prioritize. e.g. &quot;We had a big NPS win in APAC — make sure that's highlighted.&quot;"></textarea>
+        <textarea id="goals" rows="4"
+          placeholder="Describe the deck's purpose, themes, and anything Claude should prioritize or highlight. This is the primary direction — be specific. e.g. &quot;July 2026 LST monthly meeting. Big NPS win in APAC this month. Need a process reminder about timesheet compliance. All-hands scheduled for Aug 5.&quot;"></textarea>
         <div class="field-error" id="goals-err"></div>
       </div>
 
       <div class="field">
-        <label for="raw-notes">Raw notes, transcripts, or anything <span class="req">*</span></label>
-        <textarea id="raw-notes" rows="8"
-          placeholder="Dump everything here — meeting notes, bullets, copied emails, anything."></textarea>
+        <label for="raw-notes">Raw notes, emails, or transcripts <span class="opt">(optional)</span></label>
+        <textarea id="raw-notes" rows="7"
+          placeholder="Paste verbatim source material here — a copied email thread, meeting transcript, bullet dump, anything word-for-word. Claude will extract and restructure it. If you've covered everything above, you can leave this blank."></textarea>
         <div class="field-error" id="notes-err"></div>
       </div>
 
@@ -626,7 +626,7 @@ Fixed deck section order (follow exactly):
 8. content_slide for Metrics table (format: table)
 9. section_slide Shout Outs (number: "04", subtitle: "Recognizing great work across the global team")
 10. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
-11. content_slide for NPS 10s (format: nps_names)
+11. content_slide for NPS Wins (format: nps_names)
 12. section_slide Celebrations (number: "05", subtitle: "Birthdays and work anniversaries this month")
 13. content_slide for Birthdays & Anniversaries (format: two_columns)
 14. section_slide What's Coming (number: "06", subtitle: "Key dates and focus areas for next month")
@@ -828,9 +828,9 @@ function validate() {
       er.textContent = '';
     }
   };
-  setErr('topic',     'topic-err', 'Please enter a topic or title.');
-  setErr('goals',     'goals-err', 'Please describe what this deck should cover.');
-  setErr('raw-notes', 'notes-err', 'Please paste your raw notes or transcripts.');
+  setErr('topic', 'topic-err', 'Please enter a topic or title.');
+  setErr('goals', 'goals-err', 'Please describe what this deck should cover.');
+  // raw-notes is optional — no validation required
   return ok;
 }
 
@@ -844,14 +844,22 @@ function buildUserMessage() {
   const goals    = document.getElementById('goals').value.trim();
   const rawNotes = document.getElementById('raw-notes').value.trim();
 
+  // "goals" is the primary directive — always included.
+  // "rawNotes" is verbatim source material — only included when provided.
   let msg = `Topic: ${topic}
 Deck type: ${pptLabel}
 
-What this deck should cover:
-${goals}
+━━━ DIRECTION ━━━
+Use the following as your primary guide for what to cover, what to emphasize, and how to structure the deck:
+${goals}`;
 
-Raw notes / transcripts:
+  if (rawNotes) {
+    msg += `
+
+━━━ RAW SOURCE MATERIAL ━━━
+The following is verbatim source material (emails, transcripts, notes). Extract and restructure relevant content from it to populate the deck. Do not copy it verbatim — synthesize it:
 ${rawNotes}`;
+  }
 
   for (const entry of uploadedFiles) {
     if (entry.text === null) continue; // still extracting

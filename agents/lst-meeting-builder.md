@@ -22,7 +22,7 @@ The user will provide one or more of:
   general/company updates, process updates and reminders, recurring themes/ideas, shout-outs, celebrations, upcoming dates/events.
 - **Metrics CSV** — regional support KPIs (Utilization, Email Response, Chat Acceptance,
   Phone Acceptance, FCR, NPS) with MoM deltas; one row per region.
-- **Presenter notes** (`.txt`, `.docx`, `.md`) — ad-hoc notes with kudos quotes, birthday/anniversary lists, NPS 10 name lists, extra context.
+- **Presenter notes** (`.txt`, `.docx`, `.md`) — ad-hoc notes with kudos quotes, birthday/anniversary lists, NPS Wins name lists, extra context.
 
 For each input file:
 1. Thoroughly read its full contents.
@@ -56,7 +56,7 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
 | M+2 | Monthly Metrics table | `content_slide` with body `format: "table"` — regional KPIs (see schema below) |
 | M+3 | Section divider: Shout Outs | `section_slide` — number "04" |
 | M+4–P | Kudos slides | `content_slide` with body `format: "kudos"` — ≤9 items per slide |
-| P | NPS 10s | `content_slide` with body `format: "nps_names"` — 3-col name list |
+| P | NPS Wins | `content_slide` with body `format: "nps_names"` — 3-col name list |
 | P+1 | Section divider: Celebrations | `section_slide` — number "05" |
 | P+2 | Birthdays & Anniversaries | `content_slide` with body `format: "two_columns"` |
 | Q+1 | Section divider: What's Coming | `section_slide` — number "06" |
@@ -69,7 +69,7 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
 ```json
 {
   "type": "content_slide",
-  "kicker": "COMING UP",
+  "kicker": "Meeting Agenda",
   "headline": "",
   "body": {
     "format": "agenda",
@@ -102,7 +102,7 @@ These formats are used exclusively in this deck type and are not in the general 
 - Rendered as 3 columns; ≤9 items per slide (split into multiple slides if more)
 - First name in Bold Green; remaining name in White; quote in Gray italic
 
-#### `nps_names` — NPS 10s name list (Shout Outs section)
+#### `nps_names` — NPS Wins name list (Shout Outs section)
 ```json
 {
   "format": "nps_names",
