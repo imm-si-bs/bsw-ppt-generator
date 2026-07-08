@@ -594,16 +594,20 @@ The JSON schema:
     // section_slide: { "type": "section_slide", "number": "01", "title": "...", "subtitle": "..." }
     // closing_slide: { "type": "closing_slide", "title": "...", "subtitle": "..." }
     // content_slide: { "type": "content_slide", "kicker": "SECTION NAME", "headline": "Action title assertion",
-    //   "body": { "format": "bullets"|"table"|"kudos"|"nps_names"|"two_columns"|"numbered",
-    //     ... format-specific fields ... } }
+    //   "body": { "format": "agenda"|"bullets"|"table"|"kudos"|"nps_names"|"two_columns"|"numbered",
+    //     ... format-specific fields ... },
+    //   "notes": "optional — speaker notes for the presenter (use for placeholders)" }
     //
     // content_slide body formats:
+    // agenda:      { "format": "agenda", "items": [{"heading": "Section Name", "detail": "short description"}] }
     // bullets:     { "format": "bullets", "items": ["..."] }
     // numbered:    { "format": "numbered", "items": ["..."] }
     // table:       { "format": "table", "headers": ["..."], "rows": [["...","..."]] }
     // kudos:       { "format": "kudos", "items": [{"name":"...","quote":"..."}] }
     // nps_names:   { "format": "nps_names", "items": ["First Last"] }
     // two_columns: { "format": "two_columns", "left_header": "...", "left_items": ["..."], "right_header": "...", "right_items": ["..."] }
+    //
+    // Any slide type can include "notes": "..." — rendered as PowerPoint speaker notes.
   ]
 }`;
 
@@ -612,22 +616,23 @@ The JSON schema:
 
 Fixed deck section order (follow exactly):
 1. title_slide
-2. Agenda content_slide (kicker: "COMING UP", format: bullets, 6 items: General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
-3. section_slide General Updates (number: "01")
+2. Agenda content_slide (kicker: "COMING UP", headline: "", format: agenda, items with heading+detail):
+   [{"heading":"General Updates","detail":"Company Updates & Support Updates"},{"heading":"Process Reminders","detail":"Call Outs & Quality Assurance"},{"heading":"Monthly Metrics","detail":"Global Support Metrics"},{"heading":"Shout Outs","detail":"NPS Wins & Team Recognition"},{"heading":"Celebrations","detail":"Birthdays & Anniversaries"},{"heading":"What's Coming","detail":"Key Dates & Focus Areas"}]
+3. section_slide General Updates (number: "01", subtitle: "Company news, initiatives, and key changes")
 4. content_slide(s) for General Updates
-5. section_slide Process Reminders (number: "02")
+5. section_slide Process Reminders (number: "02", subtitle: "Attendance, QA, and case handling expectations")
 6. content_slide for Process Reminders
-7. section_slide Monthly Metrics (number: "03")
+7. section_slide Monthly Metrics (number: "03", subtitle: "[Month YYYY] regional performance")
 8. content_slide for Metrics table (format: table)
-9. section_slide Shout Outs (number: "04")
+9. section_slide Shout Outs (number: "04", subtitle: "Recognizing great work across the global team")
 10. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
 11. content_slide for NPS 10s (format: nps_names)
-12. section_slide Celebrations (number: "05")
+12. section_slide Celebrations (number: "05", subtitle: "Birthdays and work anniversaries this month")
 13. content_slide for Birthdays & Anniversaries (format: two_columns)
-14. section_slide What's Coming (number: "06")
+14. section_slide What's Coming (number: "06", subtitle: "Key dates and focus areas for next month")
 15. content_slide for What's Coming (format: bullets)
-16. closing_slide Questions?
-17. closing_slide Thank You
+16. closing_slide Questions? (subtitle: "Thank you for everything you do for our clients and each other.")
+17. closing_slide Thank You (subtitle: "LST Global Support Team")
 
 Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
 Each cell value: "value\\ndelta" — delta prefixed with + or -
@@ -638,9 +643,11 @@ Regions: NA, Noida, EMEA, APAC, All` : '';
 STRICT RULES:
 - No emojis anywhere in the JSON output.
 - No card grids — use bullets or tables instead.
-- Create placeholder content for any section with no source data (never omit a section).
+- Create placeholder content for any section with no source data (never omit a section). Make placeholder text realistic and specific — not generic filler like "Update here".
+- For any slide containing placeholder/TBD content, add a "notes" field with guidance for the presenter, e.g. "notes": "EDIT: Replace with actual [metrics/names/data] before presenting."
 - kicker fields must be ALL-CAPS (e.g. "GENERAL UPDATES", "MONTHLY METRICS").
 - section_slide number field must be zero-padded two digits: "01", "02", etc.
+- section_slide should include a subtitle field with a brief description of what the section covers.
 - Return raw JSON only. Nothing else.`;
 
     systemPrompt = [skill, brand, agent].join('\n\n---\n\n') + baseConstraint + lstConstraint + strictRules;
@@ -1013,7 +1020,7 @@ function buildTitleSlide(pptx, s, meta) {
 }
 
 /* ── Section divider ─────────────────────────────────────── */
-function buildSectionSlide(pptx, s, meta) {
+function buildSectionSlide(pptx, s, pageNum, meta) {
   const slide = pptx.addSlide();
   slide.background = { color: C.BG };
 
@@ -1036,27 +1043,27 @@ function buildSectionSlide(pptx, s, meta) {
     });
   }
 
-  // Section title in White
+  // Section title in Bold Green (matches Siemens chapter divider archetype)
   slide.addText(s.title || '', {
     x: 3.40, y: 3.05, w: 9.50, h: 1.50,
-    fontSize: 40, bold: true, color: C.WHITE,
+    fontSize: 40, bold: true, color: C.GREEN,
     fontFace: 'Arial', align: 'left', valign: 'middle', wrap: true,
   });
 
-  // Optional subtitle in Gray
+  // Optional subtitle in White
   if (s.subtitle) {
     slide.addText(s.subtitle, {
       x: 3.40, y: 4.65, w: 9.50, h: 0.55,
-      fontSize: 15, color: C.GRAY, fontFace: 'Arial', align: 'left',
+      fontSize: 15, color: C.WHITE, fontFace: 'Arial', align: 'left',
     });
   }
 
-  addFooter(slide, null, meta);
+  addFooter(slide, pageNum, meta);
   addWordmark(slide);
 }
 
 /* ── Closing slide ───────────────────────────────────────── */
-function buildClosingSlide(pptx, s, meta) {
+function buildClosingSlide(pptx, s, pageNum, meta) {
   const slide = pptx.addSlide();
   slide.background = { color: C.BG };
 
@@ -1083,7 +1090,7 @@ function buildClosingSlide(pptx, s, meta) {
     });
   }
 
-  addFooter(slide, null, meta);
+  addFooter(slide, pageNum, meta);
   addWordmark(slide);
 }
 
@@ -1112,7 +1119,8 @@ function buildContentSlide(pptx, s, num, meta) {
 
   // Body
   const fmt = s.body?.format;
-  if (fmt === 'bullets' || fmt === 'numbered') buildBullets(slide, s, pptx, fmt === 'numbered');
+  if (fmt === 'agenda')            buildAgenda(slide, s, pptx);
+  else if (fmt === 'bullets' || fmt === 'numbered') buildBullets(slide, s, pptx, fmt === 'numbered');
   else if (fmt === 'table')        buildTable(slide, s, pptx);
   else if (fmt === 'kudos')        buildKudos(slide, s, pptx);
   else if (fmt === 'nps_names')    buildNpsNames(slide, s, pptx);
@@ -1120,6 +1128,31 @@ function buildContentSlide(pptx, s, num, meta) {
 
   addFooter(slide, num, meta);
   addWordmark(slide);
+}
+
+/* ── Agenda (bold headings + smaller sub-descriptions) ──── */
+function buildAgenda(slide, s, pptx) {
+  const items = s.body?.items ?? [];
+  const runs = [];
+  items.forEach(item => {
+    // Support both object {heading, detail} and plain string
+    const heading = typeof item === 'object' ? item.heading : item;
+    const detail  = typeof item === 'object' ? item.detail  : '';
+    runs.push({
+      text: heading,
+      options: { fontSize: 18, bold: true, color: C.WHITE, fontFace: 'Arial', breakLine: !detail, paraSpaceBefore: 10 },
+    });
+    if (detail) {
+      runs.push({
+        text: '\n    • ' + detail,
+        options: { fontSize: 13, color: C.GRAY, fontFace: 'Arial', breakLine: true },
+      });
+    }
+  });
+  slide.addText(runs, {
+    x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW, h: DIM.BODY_H,
+    valign: 'top', wrap: true,
+  });
 }
 
 /* ── Bullets / Numbered ─────────────────────────────────── */
@@ -1297,16 +1330,65 @@ function buildPptx(deckJson) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5 in
 
+  // Define Siemens-branded slide masters so users can add new slides from these layouts
+  pptx.defineSlideMaster({
+    title: 'SIEMENS_TITLE',
+    background: { color: C.BG },
+    objects: [
+      { rect:  { x: 7.60, y: 1.40, w: 5.50, h: 2.90, fill: { type: 'gradient', stops: [{position:0,color:C.DARK_PETROL},{position:100,color:C.GREEN}] } } },
+      { text:  { text: 'SIEMENS', options: { x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H, fontSize: 8, color: C.GRAY, fontFace: 'Arial', bold: true, align: 'right' } } },
+    ],
+  });
+  pptx.defineSlideMaster({
+    title: 'SIEMENS_CONTENT',
+    background: { color: C.BG },
+    objects: [
+      { text:  { text: 'SIEMENS', options: { x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H, fontSize: 8, color: C.GRAY, fontFace: 'Arial', bold: true, align: 'right' } } },
+      { text:  { text: 'Restricted  |  © Siemens 2026', options: { x: DIM.ML, y: DIM.FOOTER_Y, w: 9.0, h: 0.20, fontSize: 7.5, color: C.DIM, fontFace: 'Arial' } } },
+    ],
+  });
+  pptx.defineSlideMaster({
+    title: 'SIEMENS_SECTION',
+    background: { color: C.BG },
+    objects: [
+      { rect:  { x: DIM.ML, y: 2.45, w: 0.90, h: 0.07, fill: { type: 'gradient', stops: [{position:0,color:C.PETROL},{position:100,color:C.GREEN}] } } },
+      { text:  { text: 'SIEMENS', options: { x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H, fontSize: 8, color: C.GRAY, fontFace: 'Arial', bold: true, align: 'right' } } },
+    ],
+  });
+  pptx.defineSlideMaster({
+    title: 'SIEMENS_CLOSING',
+    background: { color: C.BG },
+    objects: [
+      { rect:  { x: 7.60, y: 1.40, w: 5.50, h: 2.90, fill: { type: 'gradient', stops: [{position:0,color:C.DARK_PETROL},{position:100,color:C.GREEN}] } } },
+      { text:  { text: 'SIEMENS', options: { x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H, fontSize: 8, color: C.GRAY, fontFace: 'Arial', bold: true, align: 'right' } } },
+    ],
+  });
+
   const slides = deckJson.slides ?? [];
   const meta   = deckJson.meta   ?? {};
-  let contentNum = 1;
+  let pageNum = 0; // sequential page counter — all slides except title get a number
 
   slides.forEach(s => {
     switch (s.type) {
-      case 'title_slide':   buildTitleSlide(pptx, s, meta);                  break;
-      case 'section_slide': buildSectionSlide(pptx, s, meta);                break;
-      case 'closing_slide': buildClosingSlide(pptx, s, meta);                break;
-      case 'content_slide': buildContentSlide(pptx, s, contentNum++, meta);  break;
+      case 'title_slide':
+        buildTitleSlide(pptx, s, meta);
+        break;
+      case 'section_slide':
+        pageNum++;
+        buildSectionSlide(pptx, s, pageNum, meta);
+        break;
+      case 'closing_slide':
+        pageNum++;
+        buildClosingSlide(pptx, s, pageNum, meta);
+        break;
+      case 'content_slide':
+        pageNum++;
+        buildContentSlide(pptx, s, pageNum, meta);
+        break;
+    }
+    // Speaker notes support — if Claude returned a "notes" field, add it
+    if (s.notes && pptx.slides.length > 0) {
+      pptx.slides[pptx.slides.length - 1].addNotes(s.notes);
     }
   });
 

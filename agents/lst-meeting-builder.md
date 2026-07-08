@@ -72,14 +72,14 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
   "kicker": "COMING UP",
   "headline": "",
   "body": {
-    "format": "bullets",
+    "format": "agenda",
     "items": [
-      "General Updates",
-      "Process Reminders",
-      "Monthly Metrics",
-      "Shout Outs",
-      "Celebrations",
-      "What's Coming"
+      {"heading": "General Updates", "detail": "Company Updates & Support Updates"},
+      {"heading": "Process Reminders", "detail": "Call Outs & Quality Assurance"},
+      {"heading": "Monthly Metrics", "detail": "Global Support Metrics"},
+      {"heading": "Shout Outs", "detail": "NPS Wins & Team Recognition"},
+      {"heading": "Celebrations", "detail": "Birthdays & Anniversaries"},
+      {"heading": "What's Coming", "detail": "Key Dates & Focus Areas"}
     ]
   }
 }

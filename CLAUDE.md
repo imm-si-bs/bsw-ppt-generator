@@ -149,8 +149,11 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
       "kicker": "COMING UP",
       "headline": "",
       "body": {
-        "format": "bullets",
-        "items": ["General Updates", "Process Reminders", "..."]
+        "format": "agenda",
+        "items": [
+          {"heading": "General Updates", "detail": "Company Updates & Support Updates"},
+          {"heading": "Process Reminders", "detail": "Call Outs & Quality Assurance"}
+        ]
       }
     },
     {
@@ -209,12 +212,19 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
 
 | Format | Description |
 |---|---|
+| `agenda` | Bold white headings (18pt) with gray sub-descriptions (13pt) — used for "Coming Up" slide |
 | `bullets` | Plain bullet list |
 | `numbered` | Numbered list |
 | `table` | Data table (metrics slide) |
 | `kudos` | 3-column kudos layout (LST only) |
 | `nps_names` | 3-column name list, first names in Bold Green (LST only) |
 | `two_columns` | Two side-by-side text columns |
+
+## Speaker notes
+
+Any slide can include a `"notes": "..."` field. This is rendered as PowerPoint speaker notes
+(visible in the Notes panel when editing). Used primarily for placeholder/TBD slides to give
+the presenter guidance on what to replace.
 
 ## PptxGenJS rendering rules
 
@@ -234,7 +244,9 @@ PptxGenJS renders slides from Claude's JSON using the Siemens brand:
 | No emojis | Strip any emoji from Claude output before rendering |
 | No card grids | Content slides use bullets/table only |
 | Metrics delta colors | Bold Green if at/above target, Red if below |
-| Section dividers | Giant zero-padded number in Bold Green + white title on Deep Blue bg |
+| Section dividers | Giant zero-padded number in Bold Green + Bold Green title + white subtitle on Deep Blue bg |
+| Page numbers | Sequential across all slides except title slide (section + closing slides also numbered) |
+| Slide masters | 4 branded masters defined: SIEMENS_TITLE, SIEMENS_CONTENT, SIEMENS_SECTION, SIEMENS_CLOSING |
 
 ## Form fields
 
