@@ -523,7 +523,7 @@ const LITELLM_ENDPOINT = 'https://litellm.sparkai.brightlysoftware.io';
 const LITELLM_API_KEY  = 'sk-IMQ6FQy6MgCEQV8MlNKL3w';
 const MODEL_NAME       = 'sparkai-developer-claude';
 const TEMPERATURE      = 0.3;
-const MAX_TOKENS       = 4096;
+const MAX_TOKENS       = 8192;
 const MAX_CHARS        = 500000;
 
 const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/SKILL.md';
@@ -914,8 +914,18 @@ async function callAPI(userMessage) {
     throw new Error(`API error ${resp.status}: ${body}`);
   }
 
-  const data = await resp.json();
-  const raw  = data.choices?.[0]?.message?.content ?? '';
+  const data         = await resp.json();
+  const choice       = data.choices?.[0] ?? {};
+  const finishReason = choice.finish_reason;
+  const raw          = choice.message?.content ?? '';
+
+  if (finishReason === 'length') {
+    throw new Error(
+      'Claude hit the output token limit and returned an incomplete response. ' +
+      'Try reducing the amount of raw notes or uploaded content, then generate again.'
+    );
+  }
+
   return raw;
 }
 
