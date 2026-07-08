@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BSW PPT Generator</title>
+  <title>Siemens PPT Generator</title>
 
   <!-- CDN libraries -->
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
@@ -20,7 +20,7 @@
       --navy:   #000028;
       --teal:   #009999;
       --teal-lt:#e0f5f5;
-      --green:  #45FF9B;
+      --green:  #00FFB9;
       --amber:  #7a4f00;
       --amber-bg:#fffbea;
       --amber-border:#e8a800;
@@ -394,8 +394,8 @@
   <div class="header-left">
     <div class="header-icon">📊</div>
     <div>
-      <div class="header-title">BSW PPT Generator</div>
-      <div class="header-sub">LST Global Support · Brightly Software</div>
+      <div class="header-title">Siemens PPT Generator</div>
+      <div class="header-sub">LST Global Support · Siemens / Brightly</div>
     </div>
   </div>
   <div class="header-badge">AI-assisted · Review before distributing</div>
@@ -404,7 +404,7 @@
 <!-- ─── PROMPT STATUS ─────────────────────────────────────── -->
 <div id="prompt-status">
   <span class="dot loading" id="status-dot"></span>
-  <span id="status-text">Loading agent &amp; skill files…</span>
+  <span id="status-text">Loading skill &amp; agent files…</span>
 </div>
 
 <!-- ─── WARNING BANNER ────────────────────────────────────── -->
@@ -434,8 +434,8 @@
       <div class="field">
         <label for="ppt-type">PowerPoint type <span class="req">*</span></label>
         <select id="ppt-type">
-          <option value="LST Monthly Global Support Team Meeting">LST Monthly Global Support Team Meeting</option>
-          <option value="Other">Other</option>
+          <option value="lst-meeting">LST Monthly Global Support Team Meeting</option>
+          <option value="siemens-general">General Siemens Presentation</option>
         </select>
       </div>
     </div>
@@ -526,9 +526,12 @@ const TEMPERATURE      = 0.3;
 const MAX_TOKENS       = 4096;
 const MAX_CHARS        = 500000;
 
-const AGENT_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/bsw-ppt-builder.md';
-const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/SKILL.md';
-const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/BSWBRANDING.md';
+const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/SKILL.md';
+const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/BRANDING.md';
+const AGENT_URLS = {
+  'lst-meeting':     'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/lst-meeting-builder.md',
+  'siemens-general': 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/siemens-ppt-builder.md',
+};
 
 /* PDF.js worker */
 if (typeof pdfjsLib !== 'undefined') {
@@ -556,37 +559,41 @@ async function loadSystemPrompt() {
     return r.text();
   };
 
+  const pptType = document.getElementById('ppt-type').value;
+  const agentUrl = AGENT_URLS[pptType] || AGENT_URLS['lst-meeting'];
+  const agentLabel = agentUrl.split('/').pop();
+
   try {
-    text.textContent = 'Loading agent & skill files…';
+    text.textContent = 'Loading skill & agent files…';
     dot.className = 'dot loading';
 
-    const [agent, skill, brand] = await Promise.all([
-      fetchOne(AGENT_URL, 'bsw-ppt-builder.md'),
+    const [skill, brand, agent] = await Promise.all([
       fetchOne(SKILL_URL, 'SKILL.md'),
-      fetchOne(BRAND_URL, 'BSWBRANDING.md'),
+      fetchOne(BRAND_URL, 'BRANDING.md'),
+      fetchOne(agentUrl, agentLabel),
     ]);
 
-    systemPrompt = [agent, skill, brand].join('\n\n---\n\n') + `
-
+    // Base schema constraint appended to every deck type
+    const baseConstraint = `
 ---
 
-IMPORTANT CONSTRAINT: You cannot run Python or use bswppt.py here.
+IMPORTANT CONSTRAINT: You cannot run Python or use sieppt.py here.
 Return ONLY a valid JSON object matching the schema below. No prose, no markdown fences, no explanation — just raw JSON.
 
 The JSON schema:
 {
   "meta": {
     "title": "...",
-    "footer_author": "LST Global Support",
-    "footer_dept": "SUPPORT OPS",
+    "footer_author": "...",
+    "footer_dept": "...",
     "footer_date": "YYYY-MM"
   },
   "slides": [
     // Each slide is one of: title_slide, content_slide, section_slide, closing_slide
-    // title_slide:   { "type": "title_slide", "title": "...", "subtitle": "..." }
-    // section_slide: { "type": "section_slide", "title": "...", "green": false }
-    // closing_slide: { "type": "closing_slide", "title": "..." }
-    // content_slide: { "type": "content_slide", "kicker": "...", "headline": "...",
+    // title_slide:   { "type": "title_slide", "title": "...", "subtitle": "...", "meta": "..." }
+    // section_slide: { "type": "section_slide", "number": "01", "title": "...", "subtitle": "..." }
+    // closing_slide: { "type": "closing_slide", "title": "...", "subtitle": "..." }
+    // content_slide: { "type": "content_slide", "kicker": "SECTION NAME", "headline": "Action title assertion",
     //   "body": { "format": "bullets"|"table"|"kudos"|"nps_names"|"two_columns"|"numbered",
     //     ... format-specific fields ... } }
     //
@@ -598,47 +605,63 @@ The JSON schema:
     // nps_names:   { "format": "nps_names", "items": ["First Last"] }
     // two_columns: { "format": "two_columns", "left_header": "...", "left_items": ["..."], "right_header": "...", "right_items": ["..."] }
   ]
-}
+}`;
+
+    // LST-specific deck structure constraint (only for lst-meeting deck type)
+    const lstConstraint = pptType === 'lst-meeting' ? `
 
 Fixed deck section order (follow exactly):
 1. title_slide
-2. Agenda content_slide (format: bullets, 6 items: General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
-3. section_slide General Updates (green: false)
+2. Agenda content_slide (kicker: "COMING UP", format: bullets, 6 items: General Updates, Process Reminders, Monthly Metrics, Shout Outs, Celebrations, What's Coming)
+3. section_slide General Updates (number: "01")
 4. content_slide(s) for General Updates
-5. section_slide Process Reminders (green: false)
+5. section_slide Process Reminders (number: "02")
 6. content_slide for Process Reminders
-7. section_slide Monthly Metrics (green: false)
+7. section_slide Monthly Metrics (number: "03")
 8. content_slide for Metrics table (format: table)
-9. section_slide Shout Outs (green: true)
+9. section_slide Shout Outs (number: "04")
 10. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
 11. content_slide for NPS 10s (format: nps_names)
-12. section_slide Celebrations (green: true)
+12. section_slide Celebrations (number: "05")
 13. content_slide for Birthdays & Anniversaries (format: two_columns)
-14. section_slide What's Coming (green: false)
+14. section_slide What's Coming (number: "06")
 15. content_slide for What's Coming (format: bullets)
 16. closing_slide Questions?
 17. closing_slide Thank You
 
 Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
 Each cell value: "value\\ndelta" — delta prefixed with + or -
-Regions: NA, Noida, EMEA, APAC, All
+Regions: NA, Noida, EMEA, APAC, All` : '';
+
+    const strictRules = `
 
 STRICT RULES:
 - No emojis anywhere in the JSON output.
-- No card grids — agenda is bullets only.
+- No card grids — use bullets or tables instead.
 - Create placeholder content for any section with no source data (never omit a section).
+- kicker fields must be ALL-CAPS (e.g. "GENERAL UPDATES", "MONTHLY METRICS").
+- section_slide number field must be zero-padded two digits: "01", "02", etc.
 - Return raw JSON only. Nothing else.`;
 
+    systemPrompt = [skill, brand, agent].join('\n\n---\n\n') + baseConstraint + lstConstraint + strictRules;
+
     dot.className = 'dot ok';
-    text.textContent = 'Agent & skill files loaded — ready to generate.';
+    text.textContent = `Skill & agent files loaded (${agentLabel}) — ready to generate.`;
     document.getElementById('generate-btn').disabled = false;
 
   } catch (err) {
     dot.className = 'dot error';
-    text.textContent = 'Failed to load agent/skill files: ' + err.message;
-    showError('Could not load agent or skill files from GitHub. Check your connection and try refreshing.', err.message);
+    text.textContent = 'Failed to load skill/agent files: ' + err.message;
+    showError('Could not load skill or agent files from GitHub. Check your connection and try refreshing.', err.message);
   }
 }
+
+// Reload system prompt when deck type changes
+document.getElementById('ppt-type').addEventListener('change', () => {
+  document.getElementById('generate-btn').disabled = true;
+  systemPrompt = null;
+  loadSystemPrompt();
+});
 
 /* ═══════════════════════════════════════════════════════════
    FILE UPLOAD
@@ -810,11 +833,12 @@ function validate() {
 function buildUserMessage() {
   const topic    = document.getElementById('topic').value.trim();
   const pptType  = document.getElementById('ppt-type').value;
+  const pptLabel = document.getElementById('ppt-type').options[document.getElementById('ppt-type').selectedIndex].text;
   const goals    = document.getElementById('goals').value.trim();
   const rawNotes = document.getElementById('raw-notes').value.trim();
 
   let msg = `Topic: ${topic}
-Deck type: ${pptType}
+Deck type: ${pptLabel}
 
 What this deck should cover:
 ${goals}
@@ -894,166 +918,207 @@ function parseJson(raw) {
    PPTXGENJS SLIDE BUILDERS
 ═══════════════════════════════════════════════════════════ */
 
-/* Colors */
+/* Colors — Siemens brand palette */
 const C = {
-  NIGHTLY: '003359',
-  WHITE:   'FFFFFF',
-  GREEN:   '45FF9B',
-  TEAL:    '17BDBF',
-  GRAY:    'B0B8C8',
-  RED:     'FF4444',
+  BG:          '000028',  // Deep Blue — all slide backgrounds
+  WHITE:       'FFFFFF',
+  PETROL:      '009999',  // kicker / accent
+  GREEN:       '00FFB9',  // Bold Green — highlight words, section numbers
+  TEAL:        '00D7A0',  // secondary accent
+  DARK_PETROL: '00557C',  // table header fill
+  GRAY:        'B3B3BE',  // body / secondary text
+  DIM:         '66667E',  // footer text
+  CARD:        '0C0C3C',  // card fill
+  RED:         'C62828',  // negative delta
 };
 
-/* Shared dims */
+/* Shared dims — Siemens layout */
 const DIM = {
   W:  13.333,
   H:  7.5,
-  ML: 0.70,
-  CW: 11.93,
-  KICKER_Y:  0.36,
-  HEAD_Y:    0.70,
-  BODY_Y:    1.85,
-  BODY_H:    4.70,
-  FOOTER_Y:  6.97,
-  LOGO_X:   12.50,
-  LOGO_Y:    6.80,
-  LOGO_W:    0.60,
-  LOGO_H:    0.38,
+  ML: 0.60,   // Siemens left margin (0.6 in)
+  CW: 12.13,  // content width (13.333 - 2*0.6)
+  KICKER_Y:  0.48,
+  HEAD_Y:    0.82,
+  BODY_Y:    1.75,
+  BODY_H:    4.90,
+  FOOTER_Y:  7.18,
+  LOGO_X:   12.40,
+  LOGO_Y:    7.10,
+  LOGO_W:    1.32,  // SIEMENS wordmark ~1.32 in wide
+  LOGO_H:    0.21,
 };
 
-function addFooter(slide, slideNum) {
-  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
-    x: DIM.ML, y: DIM.FOOTER_Y, w: 5, h: 0.18,
-    fontSize: 7.5, color: C.GRAY, fontFace: 'Calibri',
+function addFooter(slide, slideNum, footerMeta) {
+  const author = footerMeta?.footer_author ? `  |  ${footerMeta.footer_author}` : '';
+  const dept   = footerMeta?.footer_dept   ? `  |  ${footerMeta.footer_dept}`   : '';
+  const date   = footerMeta?.footer_date   ? `  |  ${footerMeta.footer_date}`   : '';
+  const pageStr = slideNum != null ? `Page ${slideNum}      ` : '';
+  slide.addText(`${pageStr}Restricted  |  © Siemens 2026${author}${dept}${date}`, {
+    x: DIM.ML, y: DIM.FOOTER_Y, w: 9.0, h: 0.20,
+    fontSize: 7.5, color: C.DIM, fontFace: 'Arial',
   });
-  if (slideNum != null) {
-    slide.addText(String(slideNum), {
-      x: 0.22, y: DIM.FOOTER_Y, w: 0.28, h: 0.18,
-      fontSize: 7.5, color: C.GRAY, fontFace: 'Calibri',
-    });
-  }
 }
 
 function addWordmark(slide) {
-  // Brightly wordmark placeholder — white text badge (no image asset in browser)
-  slide.addText('brightly', {
+  // SIEMENS wordmark placeholder — text badge (no image asset in browser)
+  slide.addText('SIEMENS', {
     x: DIM.LOGO_X, y: DIM.LOGO_Y, w: DIM.LOGO_W, h: DIM.LOGO_H,
-    fontSize: 7, color: C.GRAY, fontFace: 'Calibri', italic: true,
+    fontSize: 8, color: C.GRAY, fontFace: 'Arial', bold: true,
     align: 'right',
   });
 }
 
 /* ── Title slide ─────────────────────────────────────────── */
-function buildTitleSlide(pptx, s) {
+function buildTitleSlide(pptx, s, meta) {
   const slide = pptx.addSlide();
-  // Green gradient background (solid teal as proxy — no image in browser)
-  slide.background = { color: '2a9e7c' };
+  // Deep Blue background
+  slide.background = { color: C.BG };
 
-  // Decorative accent bar top
+  // Decorative petrol→green gradient rect on right side (proxy for infinity motif)
   slide.addShape(pptx.ShapeType.rect, {
-    x: 0, y: 0, w: DIM.W, h: 0.06, fill: { color: C.GREEN },
+    x: 7.60, y: 1.40, w: 5.50, h: 2.90,
+    fill: { type: 'gradient', stops: [
+      { position: 0,   color: C.DARK_PETROL },
+      { position: 100, color: C.GREEN },
+    ]},
+    line: { type: 'none' },
   });
 
-  slide.addText(s.title || 'Monthly Global Support Team Meeting', {
-    x: 0.80, y: 2.20, w: 11.70, h: 1.80,
-    fontSize: 54, bold: true, color: C.NIGHTLY,
-    fontFace: 'Calibri', align: 'center', wrap: true, valign: 'middle',
+  // Title — White
+  slide.addText(s.title || '', {
+    x: DIM.ML, y: 2.00, w: 6.80, h: 1.80,
+    fontSize: 48, bold: true, color: C.WHITE,
+    fontFace: 'Arial', align: 'left', wrap: true, valign: 'middle',
   });
 
+  // Subtitle — Gray
   if (s.subtitle) {
     slide.addText(s.subtitle, {
-      x: 0.80, y: 4.20, w: 11.70, h: 0.60,
-      fontSize: 20, color: C.NIGHTLY, fontFace: 'Calibri',
-      align: 'center',
+      x: DIM.ML, y: 3.90, w: 6.80, h: 0.60,
+      fontSize: 19, color: C.GRAY, fontFace: 'Arial', align: 'left',
     });
   }
 
-  // Footer wordmark area
-  slide.addText('brightly', {
-    x: 0.64, y: 6.34, w: 2.0, h: 0.40,
-    fontSize: 11, color: C.NIGHTLY, fontFace: 'Calibri', italic: true, bold: true,
-  });
-  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
-    x: 8, y: DIM.FOOTER_Y, w: 5, h: 0.18,
-    fontSize: 7.5, color: C.NIGHTLY, fontFace: 'Calibri', align: 'right',
-  });
+  // Meta line — Petrol
+  if (s.meta) {
+    slide.addText(s.meta, {
+      x: DIM.ML, y: 4.60, w: 6.80, h: 0.35,
+      fontSize: 12, color: C.PETROL, fontFace: 'Arial', bold: true, align: 'left',
+    });
+  }
+
+  addFooter(slide, null, meta);
+  addWordmark(slide);
 }
 
 /* ── Section divider ─────────────────────────────────────── */
-function buildSectionSlide(pptx, s, num) {
+function buildSectionSlide(pptx, s, meta) {
   const slide = pptx.addSlide();
-  const isGreen = !!s.green;
-  const bg   = isGreen ? C.GREEN   : C.NIGHTLY;
-  const fg   = isGreen ? C.NIGHTLY : C.WHITE;
+  slide.background = { color: C.BG };
 
-  slide.background = { color: bg };
-
-  slide.addText(s.title || '', {
-    x: DIM.ML, y: 1.80, w: DIM.CW, h: 3.60,
-    fontSize: 40, bold: true, color: fg,
-    fontFace: 'Calibri', align: 'left', valign: 'middle', wrap: true,
+  // Petrol→green gradient accent bar
+  slide.addShape(pptx.ShapeType.rect, {
+    x: DIM.ML, y: 2.45, w: 0.90, h: 0.07,
+    fill: { type: 'gradient', stops: [
+      { position: 0,   color: C.PETROL },
+      { position: 100, color: C.GREEN },
+    ]},
+    line: { type: 'none' },
   });
 
+  // Giant section number in Bold Green
+  if (s.number) {
+    slide.addText(s.number, {
+      x: DIM.ML, y: 2.70, w: 3.50, h: 1.80,
+      fontSize: 100, bold: true, color: C.GREEN,
+      fontFace: 'Arial', align: 'left', valign: 'top',
+    });
+  }
+
+  // Section title in White
+  slide.addText(s.title || '', {
+    x: 3.40, y: 3.05, w: 9.50, h: 1.50,
+    fontSize: 40, bold: true, color: C.WHITE,
+    fontFace: 'Arial', align: 'left', valign: 'middle', wrap: true,
+  });
+
+  // Optional subtitle in Gray
+  if (s.subtitle) {
+    slide.addText(s.subtitle, {
+      x: 3.40, y: 4.65, w: 9.50, h: 0.55,
+      fontSize: 15, color: C.GRAY, fontFace: 'Arial', align: 'left',
+    });
+  }
+
+  addFooter(slide, null, meta);
   addWordmark(slide);
 }
 
 /* ── Closing slide ───────────────────────────────────────── */
-function buildClosingSlide(pptx, s) {
+function buildClosingSlide(pptx, s, meta) {
   const slide = pptx.addSlide();
-  slide.background = { color: '2a9e7c' };
+  slide.background = { color: C.BG };
 
+  // Decorative gradient rect (same as title)
   slide.addShape(pptx.ShapeType.rect, {
-    x: 0, y: 0, w: DIM.W, h: 0.06, fill: { color: C.GREEN },
+    x: 7.60, y: 1.40, w: 5.50, h: 2.90,
+    fill: { type: 'gradient', stops: [
+      { position: 0,   color: C.DARK_PETROL },
+      { position: 100, color: C.GREEN },
+    ]},
+    line: { type: 'none' },
   });
 
   slide.addText(s.title || 'Thank You', {
-    x: 0.80, y: 2.00, w: 11.70, h: 3.00,
-    fontSize: 80, bold: true, color: C.NIGHTLY,
-    fontFace: 'Calibri', align: 'center', valign: 'middle', wrap: true,
+    x: DIM.ML, y: 2.20, w: 6.80, h: 2.60,
+    fontSize: 72, bold: true, color: C.WHITE,
+    fontFace: 'Arial', align: 'left', valign: 'middle', wrap: true,
   });
 
-  slide.addText('brightly', {
-    x: 0.64, y: 6.34, w: 2.0, h: 0.40,
-    fontSize: 11, color: C.NIGHTLY, fontFace: 'Calibri', italic: true, bold: true,
-  });
-  slide.addText(`© 2026 | Brightly Software CONFIDENTIAL`, {
-    x: 8, y: DIM.FOOTER_Y, w: 5, h: 0.18,
-    fontSize: 7.5, color: C.NIGHTLY, fontFace: 'Calibri', align: 'right',
-  });
-}
-
-/* ── Content slide — dispatcher ─────────────────────────── */
-function buildContentSlide(pptx, s, num) {
-  const slide = pptx.addSlide();
-  slide.background = { color: C.NIGHTLY };
-
-  // Kicker
-  if (s.kicker) {
-    slide.addText(s.kicker.toUpperCase(), {
-      x: DIM.ML, y: DIM.KICKER_Y, w: DIM.CW, h: 0.28,
-      fontSize: 11, bold: true, color: C.GREEN,
-      fontFace: 'Calibri',
+  if (s.subtitle) {
+    slide.addText(s.subtitle, {
+      x: DIM.ML, y: 4.90, w: 6.80, h: 0.55,
+      fontSize: 19, color: C.GRAY, fontFace: 'Arial', align: 'left',
     });
   }
 
-  // Headline
+  addFooter(slide, null, meta);
+  addWordmark(slide);
+}
+
+/* ── Content slide — dispatcher ─────────────────────────── */
+function buildContentSlide(pptx, s, num, meta) {
+  const slide = pptx.addSlide();
+  slide.background = { color: C.BG };
+
+  // Kicker — ALL-CAPS, Petrol
+  if (s.kicker) {
+    slide.addText(s.kicker.toUpperCase(), {
+      x: DIM.ML, y: DIM.KICKER_Y, w: DIM.CW, h: 0.28,
+      fontSize: 11, bold: true, color: C.PETROL,
+      fontFace: 'Arial',
+    });
+  }
+
+  // Headline — White, action title
   if (s.headline) {
     slide.addText(s.headline, {
-      x: DIM.ML, y: DIM.HEAD_Y, w: DIM.CW, h: 0.90,
+      x: DIM.ML, y: DIM.HEAD_Y, w: DIM.CW, h: 0.80,
       fontSize: 24, bold: true, color: C.WHITE,
-      fontFace: 'Calibri', wrap: true,
+      fontFace: 'Arial', wrap: true,
     });
   }
 
   // Body
   const fmt = s.body?.format;
   if (fmt === 'bullets' || fmt === 'numbered') buildBullets(slide, s, pptx, fmt === 'numbered');
-  else if (fmt === 'table')      buildTable(slide, s, pptx);
-  else if (fmt === 'kudos')      buildKudos(slide, s, pptx);
-  else if (fmt === 'nps_names')  buildNpsNames(slide, s, pptx);
-  else if (fmt === 'two_columns') buildTwoColumns(slide, s, pptx);
+  else if (fmt === 'table')        buildTable(slide, s, pptx);
+  else if (fmt === 'kudos')        buildKudos(slide, s, pptx);
+  else if (fmt === 'nps_names')    buildNpsNames(slide, s, pptx);
+  else if (fmt === 'two_columns')  buildTwoColumns(slide, s, pptx);
 
-  addFooter(slide, num);
+  addFooter(slide, num, meta);
   addWordmark(slide);
 }
 
@@ -1067,7 +1132,7 @@ function buildBullets(slide, s, pptx, numbered) {
     const prefix = numbered ? `${i + 1}.  ` : '•  ';
     runs.push({
       text: prefix + item,
-      options: { fontSize: 13, color: C.GRAY, fontFace: 'Calibri', breakLine: true, paraSpaceAfter: 6 },
+      options: { fontSize: 13, color: C.GRAY, fontFace: 'Arial', breakLine: true, paraSpaceAfter: 6 },
     });
   });
   slide.addText(runs, {
@@ -1088,12 +1153,12 @@ function buildTable(slide, s, pptx) {
   const colW = [1.10, 1.74, 1.74, 1.74, 1.74, 1.10, 1.10];
   const tableRows = [];
 
-  // Header row
+  // Header row — Dark Petrol fill, White text
   tableRows.push(headers.map(h => ({
     text: h,
     options: {
-      bold: true, fontSize: 10, color: C.NIGHTLY, fill: { color: C.GREEN },
-      valign: 'middle', align: 'center',
+      bold: true, fontSize: 10, color: C.WHITE, fill: { color: C.DARK_PETROL },
+      valign: 'middle', align: 'center', fontFace: 'Arial',
     },
   })));
 
@@ -1101,10 +1166,10 @@ function buildTable(slide, s, pptx) {
   rows.forEach(row => {
     tableRows.push(row.map((cell, ci) => {
       if (ci === 0) {
-        // Region label
+        // Region label — Petrol fill, Bold Green text
         return {
           text: cell,
-          options: { bold: true, fontSize: 10, color: C.WHITE, fill: { color: '004a7c' }, align: 'center', valign: 'middle' },
+          options: { bold: true, fontSize: 10, color: C.GREEN, fill: { color: C.DARK_PETROL }, align: 'center', valign: 'middle', fontFace: 'Arial' },
         };
       }
       // Parse value\ndelta
@@ -1113,14 +1178,14 @@ function buildTable(slide, s, pptx) {
       const delta = parts[1] ?? '';
       const deltaNum = parseFloat(delta.replace(/[+%]/g, ''));
       const isGood   = !isNaN(deltaNum) && deltaNum >= 0;
-      const deltaColor = delta ? (isGood ? '2e7d32' : 'c62828') : C.GRAY;
+      const deltaColor = delta ? (isGood ? C.GREEN : C.RED) : C.GRAY;
 
       return {
         text: [
-          { text: val + '\n',   options: { fontSize: 11, bold: true, color: C.WHITE } },
-          { text: delta,         options: { fontSize: 9,  bold: false, color: deltaColor } },
+          { text: val + '\n',  options: { fontSize: 11, bold: true,  color: C.WHITE, fontFace: 'Arial' } },
+          { text: delta,        options: { fontSize: 9,  bold: false, color: deltaColor, fontFace: 'Arial' } },
         ],
-        options: { fill: { color: '003f6b' }, align: 'center', valign: 'middle' },
+        options: { fill: { color: C.CARD }, align: 'center', valign: 'middle' },
       };
     }));
   });
@@ -1129,7 +1194,7 @@ function buildTable(slide, s, pptx) {
     x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW,
     colW: colW,
     rowH: 0.55,
-    border: { type: 'solid', pt: 0.5, color: '004a7c' },
+    border: { type: 'solid', pt: 0.5, color: C.DARK_PETROL },
   });
 }
 
@@ -1148,14 +1213,14 @@ function buildKudos(slide, s, pptx) {
     cols[ci].forEach(item => {
       const firstName = (item.name || '').split(/[\s,]/)[0];
       const rest      = (item.name || '').slice(firstName.length);
-      // Name line: first name (green) + rest of name, then breakLine to start new paragraph
+      // Name line: first name (Bold Green) + rest of name, then breakLine
       textArr.push(
-        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 13, fontFace: 'Calibri' } },
-        { text: rest,      options: { bold: false, color: C.WHITE, fontSize: 13, fontFace: 'Calibri', breakLine: true } },
+        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 13, fontFace: 'Arial' } },
+        { text: rest,      options: { bold: false, color: C.WHITE, fontSize: 13, fontFace: 'Arial', breakLine: true } },
       );
-      // Quote line, then blank line via breakLine
+      // Quote line, then spacer
       textArr.push(
-        { text: (item.quote || ''), options: { color: C.GRAY, fontSize: 11, fontFace: 'Calibri', italic: true, breakLine: true } },
+        { text: (item.quote || ''), options: { color: C.GRAY, fontSize: 11, fontFace: 'Arial', italic: true, breakLine: true } },
         { text: '',                 options: { fontSize: 6, breakLine: true } }, // spacer
       );
     });
@@ -1183,8 +1248,8 @@ function buildNpsNames(slide, s, pptx) {
       const rest      = String(name).slice(firstName.length);
       // breakLine on the last run of each name forces a new paragraph per person
       textArr.push(
-        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 12, fontFace: 'Calibri' } },
-        { text: rest,      options: { color: C.WHITE, fontSize: 12, fontFace: 'Calibri', breakLine: true } },
+        { text: firstName, options: { bold: true, color: C.GREEN, fontSize: 12, fontFace: 'Arial' } },
+        { text: rest,      options: { color: C.WHITE, fontSize: 12, fontFace: 'Arial', breakLine: true } },
       );
     });
     slide.addText(textArr, {
@@ -1204,23 +1269,23 @@ function buildTwoColumns(slide, s, pptx) {
 
   const buildCol = (header, items, color) => {
     const arr = [
-      { text: header, options: { bold: true, color, fontSize: 14, fontFace: 'Calibri', breakLine: true } },
+      { text: header, options: { bold: true, color, fontSize: 14, fontFace: 'Arial', breakLine: true } },
     ];
     items.forEach(item => {
-      arr.push({ text: '• ' + item, options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', breakLine: true, paraSpaceAfter: 4 } });
+      arr.push({ text: '• ' + item, options: { color: C.GRAY, fontSize: 12, fontFace: 'Arial', breakLine: true, paraSpaceAfter: 4 } });
     });
     if (!items.length) {
-      arr.push({ text: 'None this month', options: { color: C.GRAY, fontSize: 12, fontFace: 'Calibri', italic: true, breakLine: true } });
+      arr.push({ text: 'None this month', options: { color: C.GRAY, fontSize: 12, fontFace: 'Arial', italic: true, breakLine: true } });
     }
     return arr;
   };
 
   slide.addText(buildCol(leftH, leftI, C.GREEN), {
-    x: DIM.ML, y: DIM.BODY_Y, w: 5.70, h: DIM.BODY_H,
+    x: DIM.ML, y: DIM.BODY_Y, w: 5.90, h: DIM.BODY_H,
     valign: 'top', wrap: true,
   });
   slide.addText(buildCol(rightH, rightI, C.TEAL), {
-    x: DIM.ML + 6.00, y: DIM.BODY_Y, w: 5.70, h: DIM.BODY_H,
+    x: DIM.ML + 6.20, y: DIM.BODY_Y, w: 5.90, h: DIM.BODY_H,
     valign: 'top', wrap: true,
   });
 }
@@ -1233,14 +1298,15 @@ function buildPptx(deckJson) {
   pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5 in
 
   const slides = deckJson.slides ?? [];
+  const meta   = deckJson.meta   ?? {};
   let contentNum = 1;
 
   slides.forEach(s => {
     switch (s.type) {
-      case 'title_slide':   buildTitleSlide(pptx, s);                  break;
-      case 'section_slide': buildSectionSlide(pptx, s, contentNum);    break;
-      case 'closing_slide': buildClosingSlide(pptx, s);                break;
-      case 'content_slide': buildContentSlide(pptx, s, contentNum++);  break;
+      case 'title_slide':   buildTitleSlide(pptx, s, meta);                  break;
+      case 'section_slide': buildSectionSlide(pptx, s, meta);                break;
+      case 'closing_slide': buildClosingSlide(pptx, s, meta);                break;
+      case 'content_slide': buildContentSlide(pptx, s, contentNum++, meta);  break;
     }
   });
 
@@ -1312,10 +1378,12 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     const pptx = buildPptx(deckJson);
 
     const topic    = document.getElementById('topic').value.trim();
+    const pptType  = document.getElementById('ppt-type').value;
     const meta     = deckJson.meta ?? {};
     const dateStr  = meta.footer_date ?? new Date().toISOString().slice(0, 7);
     const safeTopic = topic.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
-    const filename = `LST-Monthly-BSW-${dateStr}-${safeTopic}.pptx`;
+    const typePrefix = pptType === 'lst-meeting' ? 'LST-Monthly' : 'Siemens-Deck';
+    const filename = `${typePrefix}-${dateStr}-${safeTopic}.pptx`;
 
     // Store download handler
     document.getElementById('download-btn').onclick = () => {

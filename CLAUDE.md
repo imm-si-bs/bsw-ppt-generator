@@ -1,4 +1,4 @@
-# BSW PPT Generator — Project CLAUDE.md
+# Siemens PPT Generator — Project CLAUDE.md
 
 This file is the source of truth for anyone (human or AI) working on this repo.
 Read it before touching any file.
@@ -38,54 +38,58 @@ Read it before touching any file.
 
 ## What this project is
 
-A browser-only web app that lets non-technical users generate a Brightly-branded
-LST Monthly Global Support Team Meeting PowerPoint deck by filling out a form and
-uploading source material. No terminal, no Python, no install required.
+A browser-only web app that lets non-technical users generate Siemens-branded
+PowerPoint decks by filling out a form and uploading source material. No terminal,
+no Python, no install required.
 
-The user fills in the form → Claude (via LiteLLM) reads the agent/skill files
+The user fills in the form → Claude (via LiteLLM) reads the skill/agent files
 from this repo and generates structured slide content → PptxGenJS builds the
 .pptx in the browser → the user downloads it directly.
+
+Deck types available:
+- **LST Monthly Global Support Team Meeting** — fixed 17-slide structure, specific sections
+- **General Siemens Presentation** — flexible structure derived from source material
 
 ---
 
 ## Repo structure
 
+```
 bsw-ppt-generator/
-index.html                ← THE WEB APP — the only file users interact with
-CLAUDE.md                 ← this file
-README.md                 ← editing instructions for humans
+  index.html                  ← THE WEB APP — the only file users interact with
+  CLAUDE.md                   ← this file
+  README.md                   ← editing instructions for humans
+  sync-to-claude.bat          ← syncs repo files → ~/.claude/ for local Claude Code use
 
-agents/
-bsw-ppt-builder.md      ← agent instructions fetched by the web app at runtime
-ALSO used by Claude Code locally (kept in sync manually)
+  agents/
+    lst-meeting-builder.md    ← LST Monthly Meeting agent (fetched by web app)
+    siemens-ppt-builder.md    ← General Siemens PPT agent (fetched by web app)
 
-skills/
-bsw-ppt/
-SKILL.md              ← Python library reference + slide archetypes
-Fetched by the web app. Used by Claude as constraints.
-BSWBRANDING.md        ← Full brand spec (colors, typography, layout rules)
-Fetched by the web app. Used by Claude as constraints.
-
-
+  skills/
+    siemens-ppt-gen/
+      SKILL.md                ← General Siemens slide archetypes + JSON schema
+      BRANDING.md             ← Siemens brand spec (colors, typography, layout)
+```
 
 **Files NOT in this repo (local only, browser can't use them):**
-- `~/.claude/skills/bsw-ppt/lib/bswppt.py` — Python library, local Claude Code only
-- `~/.claude/skills/bsw-ppt/assets/` — image files, local only
-- `Brightly Theme.pptx` — template file, local only
+- `~/.claude/skills/siemens-ppt/lib/sieppt.py` — Python library, local Claude Code only
+- `~/.claude/skills/siemens-ppt/assets/` — image files (infinity motif, logos), local only
+- `~/.claude/skills/bsw-ppt/` — Brightly branding files, local only
 
 ---
 
 ## How the web app works (architecture)
 
+```
 Page loads
-→ fetches agents/bsw-ppt-builder.md   (raw GitHub URL)
-→ fetches skills/bsw-ppt/SKILL.md     (raw GitHub URL)
-→ fetches skills/bsw-ppt/BSWBRANDING.md (raw GitHub URL)
+→ fetches skills/siemens-ppt-gen/SKILL.md       (raw GitHub URL)
+→ fetches skills/siemens-ppt-gen/BRANDING.md     (raw GitHub URL)
+→ fetches agents/<selected-agent>.md             (raw GitHub URL — depends on dropdown)
 → concatenates all three into one system prompt
 
 User fills form + uploads files
 → browser reads file contents client-side (FileReader API)
-→ supports: .txt, .md, .csv, .docx, .pptx (text extraction only for docx/pptx)
+→ supports: .txt, .md, .csv, .docx, .pptx, .pdf
 
 Form submitted
 → sends system prompt + user message to LiteLLM API
@@ -96,8 +100,10 @@ PptxGenJS (loaded from CDN) reads the JSON
 → triggers browser download
 
 No server. No Python. No terminal.
+```
 
-
+When the user changes the deck type dropdown, the agent URL changes and the
+system prompt is reloaded automatically.
 
 ---
 
@@ -105,17 +111,16 @@ No server. No Python. No terminal.
 
 The system prompt sent to Claude is built at runtime by concatenating:
 
-[bsw-ppt-builder.md full contents]
+```
 [SKILL.md full contents]
-[BSWBRANDING.md full contents]
-IMPORTANT CONSTRAINT: You cannot run Python or use bswppt.py here.
-Instead, return a JSON object describing every slide. The schema is defined below.
-PptxGenJS will render the slides from your JSON using the branding rules above.
-Do not deviate from the branding rules, section order, or content rules above.
+[BRANDING.md full contents]
+[selected agent .md full contents]
+[JSON schema constraint block — hardcoded in index.html]
+[LST-specific deck structure — appended only for lst-meeting deck type]
+[STRICT RULES block]
+```
 
-
-
-This means: **editing the agent or skill files in this repo directly changes
+This means: **editing the skill or agent files in this repo directly changes
 what Claude is instructed to do.** No code changes needed to update behavior.
 
 ---
@@ -136,11 +141,12 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
     {
       "type": "title_slide",
       "title": "Monthly Global Support Team Meeting",
-      "subtitle": "LST · July 2026"
+      "subtitle": "LST · July 2026",
+      "meta": "July 2026"
     },
     {
       "type": "content_slide",
-      "kicker": "Coming up...",
+      "kicker": "COMING UP",
       "headline": "",
       "body": {
         "format": "bullets",
@@ -149,13 +155,14 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
     },
     {
       "type": "section_slide",
+      "number": "01",
       "title": "General Updates",
-      "green": false
+      "subtitle": ""
     },
     {
       "type": "content_slide",
-      "kicker": "General Updates",
-      "headline": "Action title here",
+      "kicker": "GENERAL UPDATES",
+      "headline": "Action title assertion here",
       "body": {
         "format": "bullets",
         "items": ["bullet 1", "bullet 2"]
@@ -163,26 +170,26 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
     },
     {
       "type": "content_slide",
-      "kicker": "Monthly Metrics",
+      "kicker": "MONTHLY METRICS",
       "headline": "Regional KPI Summary",
       "body": {
         "format": "table",
-        "headers": ["Region", "Utilization (70%)", "Phone (95%)", "Chat (95%)", "Email (95%)", "FCR (70%)", "NPS (70)"],
+        "headers": ["Region", "Utilization (70%)", "Phone Accept. (95%)", "Chat Accept. (95%)", "Email Response (95%)", "FCR (70%)", "NPS (70)"],
         "rows": [
-          ["NA", "72%\n+2%", "96%\n+1%", "..."],
+          ["NA", "72%\n+2%", "96%\n+1%", "94%\n-1%", "97%\n+2%", "74%\n+4%", "71\n+1"],
           ["..."]
         ]
       }
     },
     {
       "type": "content_slide",
-      "kicker": "Shout Outs",
+      "kicker": "SHOUT OUTS",
       "headline": "Team Recognition",
       "body": {
         "format": "kudos",
         "items": [
           {"name": "Jane D.", "quote": "Went above and beyond..."},
-          {"name": "..."}
+          {"name": "John S.", "quote": "..."}
         ]
       }
     },
@@ -198,78 +205,89 @@ Claude returns a single JSON object. PptxGenJS reads this to build the deck.
 }
 ```
 
-## Supported body.format values:
+## Supported body.format values
 
-"bullets" — plain bullet list
-"table" — data table (metrics slide)
-"kudos" — 3-column kudos layout
-"nps_names" — 3-column name list, first names in green
-"two_columns" — birthdays left, anniversaries right
-"numbered" — numbered list
+| Format | Description |
+|---|---|
+| `bullets` | Plain bullet list |
+| `numbered` | Numbered list |
+| `table` | Data table (metrics slide) |
+| `kudos` | 3-column kudos layout (LST only) |
+| `nps_names` | 3-column name list, first names in Bold Green (LST only) |
+| `two_columns` | Two side-by-side text columns |
 
 ## PptxGenJS rendering rules
-PptxGenJS is a JavaScript library that mirrors the bswppt.py library's output.
-It must implement the same branding rules:
 
-Rule	| Value
-Background |	#003359 (Nightly Blue) for all content/section slides
-Cover/closing bg	| Green gradient (image1.png — hosted in assets/ or CDN)
-Accent color |	#45FF9B (Brightly Green)
-Secondary accent |	#17BDBF (Teal)
-Headline font |	Calibri, bold, 22–26pt, white
-Kicker font |	Calibri, bold, 11pt, #45FF9B
-Body font |	Calibri, 11–13pt, #B0B8C8 (gray)
-Section divider (green) |	green: true in JSON → bg #45FF9B, text #003359
-No emojis |	Strip any emoji from Claude output before rendering
-No card grids |	Agenda and content slides use bullets/table only
-Metrics delta colors |	Green run if at/above target, red run if below
+PptxGenJS renders slides from Claude's JSON using the Siemens brand:
+
+| Rule | Value |
+|---|---|
+| Background | `#000028` (Deep Blue) for all slides |
+| Cover/closing bg | Deep Blue + petrol→green gradient rect (proxy for infinity motif) |
+| Kicker color | `#009999` (Petrol), ALL-CAPS |
+| Accent/highlight | `#00FFB9` (Bold Green) — section numbers, first names, accent words |
+| Secondary accent | `#00D7A0` (Teal) |
+| Headline font | Arial, bold, 24–26pt, White |
+| Body font | Arial, 13pt, `#B3B3BE` (Gray) |
+| Table header fill | `#00557C` (Dark Petrol) |
+| Footer text | `#66667E` (Dim) — `Page N  Restricted  |  © Siemens 2026  |  author  |  dept  |  date` |
+| No emojis | Strip any emoji from Claude output before rendering |
+| No card grids | Content slides use bullets/table only |
+| Metrics delta colors | Bold Green if at/above target, Red if below |
+| Section dividers | Giant zero-padded number in Bold Green + white title on Deep Blue bg |
 
 ## Form fields
+
 ### Section A — The Basics
-Field |	Required | Notes
-Topic / rough title |	✅ |	e.g. "July 2026 LST Meeting"
-PowerPoint type |	✅ |	"LST Monthly Global Support Team Meeting" or "Other"
+| Field | Required | Notes |
+|---|---|---|
+| Topic / rough title | ✅ | e.g. "July 2026 LST Global Support Team Meeting" |
+| PowerPoint type | ✅ | "LST Monthly Global Support Team Meeting" or "General Siemens Presentation" |
+
 ### Section B — The Content
-Field |	Required | Notes
-What should this deck cover? | ✅ |	Free-text: goals, themes, anything Claude should prioritize
-Raw notes / transcripts |	✅ |	Dump field: paste text, meeting notes, anything
-File uploads |	optional |	.txt, .md, .csv, .docx, .pptx — all read client-side
-Instructions for each file |	✅ |	Per-file text box: "this CSV is the metrics data", etc.
-### Section C — Metadata (future iteration)
-Not in v1. Will include: presenter name, month/year, tags, existing deck URL.
+| Field | Required | Notes |
+|---|---|---|
+| What should this deck cover? | ✅ | Free-text: goals, themes, anything Claude should prioritize |
+| Raw notes / transcripts | ✅ | Dump field: paste text, meeting notes, anything |
+| File uploads | optional | .txt, .md, .csv, .docx, .pptx, .pdf — all read client-side |
+| Instructions for each file | ✅ | Per-file text box: "this CSV is the metrics data", etc. |
 
 ## File upload handling
+
 All file reading happens in the browser (FileReader API). No file ever leaves
 the browser except as text in the API request body.
 
-Extension |	How it's read
-.txt, .md |	readAsText — full contents
-.csv |	readAsText — full contents
-.docx |	mammoth.js (CDN) → extracts plain text
-.pptx |	JSZip (CDN) → extracts slide XML → strips tags → plain text
-.pdf |	PDF.js (CDN) → extracts text per page
+| Extension | How it's read |
+|---|---|
+| `.txt`, `.md` | `readAsText` — full contents |
+| `.csv` | `readAsText` — full contents |
+| `.docx` | mammoth.js (CDN) → extracts plain text |
+| `.pptx` | JSZip (CDN) → extracts slide XML → strips tags → plain text |
+| `.pdf` | PDF.js (CDN) → extracts text per page |
+
 Each uploaded file produces a text block appended to the user message:
 
-
+```
 ━━━ FILE: filename.csv ━━━
 [user's instruction for this file, if provided]
 ━━━ CONTENT ━━━
 [extracted text]
+```
 
 ## API configuration
 
+```javascript
 const LITELLM_ENDPOINT = 'https://litellm.sparkai.brightlysoftware.io';
-
 const LITELLM_API_KEY  = 'your-key-here';   // ⚠️ visible in browser — see security note
-
 const MODEL_NAME       = 'sparkai-developer-claude';
+```
 
-Security note: The API key is visible in the HTML source, same as the KB
-Article Writer. This is acceptable for an internal tool used by a known team.
-Do not publish this repo publicly if you want to keep the key private — or use
-a LiteLLM key scoped to this model only with a low spend limit.
+Security note: The API key is visible in the HTML source. This is acceptable for
+an internal tool used by a known team. Do not publish this repo publicly if you
+want to keep the key private.
 
 ## GitHub Pages deployment
+
 The web app is served via GitHub Pages from the root of the main branch.
 URL: https://imm-si-bs.github.io/bsw-ppt-generator/
 
@@ -277,48 +295,55 @@ To deploy: push to main. GitHub Pages updates within ~60 seconds. No build
 step, no CI, no configuration — index.html is served directly.
 
 ## Raw GitHub URLs used by the web app
-These are fetched at page load:
 
-const AGENT_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/bsw-ppt-builder.md';
-
-const SKILL_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/SKILL.md';
-
-const BRAND_URL   = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/bsw-ppt/BSWBRANDING.md';
+```javascript
+const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/SKILL.md';
+const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/BRANDING.md';
+const AGENT_URLS = {
+  'lst-meeting':     'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/lst-meeting-builder.md',
+  'siemens-general': 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/siemens-ppt-builder.md',
+};
+```
 
 These URLs only resolve after content is pushed to main. During local
 development, use the local file contents as hardcoded fallbacks.
 
 ## Keeping .claude/ in sync
+
 The agent and skill files live in two places:
+- This repo (source of truth for the web app)
+- `~/.claude/` (where Claude Code reads them locally)
 
-This repo (source of truth for the web app)
-~/.claude/ (where Claude Code reads them locally)
+### To sync repo → local after editing:
 
-### To sync repo → local after editing: 
+1. On Windows: run `sync-to-claude.bat` from the repo root
+2. Or manually copy the files
 
-1. On Windows: run sync-to-claude.bat from the repo root (copy/paste the bat below)
-2. Or manually copy the three files
-
+```bat
 :: sync-to-claude.bat
 @echo off
-copy /Y "agents\bsw-ppt-builder.md" "%USERPROFILE%\.claude\agents\bsw-ppt-builder.md"
-copy /Y "skills\bsw-ppt\SKILL.md" "%USERPROFILE%\.claude\skills\bsw-ppt\SKILL.md"
-copy /Y "skills\bsw-ppt\BSWBRANDING.md" "%USERPROFILE%\.claude\skills\bsw-ppt\BSWBRANDING.md"
+copy /Y "agents\lst-meeting-builder.md" "%USERPROFILE%\.claude\agents\lst-meeting-builder.md"
+copy /Y "agents\siemens-ppt-builder.md" "%USERPROFILE%\.claude\agents\siemens-ppt-builder.md"
+copy /Y "skills\siemens-ppt-gen\SKILL.md" "%USERPROFILE%\.claude\skills\siemens-ppt-gen\SKILL.md"
+copy /Y "skills\siemens-ppt-gen\BRANDING.md" "%USERPROFILE%\.claude\skills\siemens-ppt-gen\BRANDING.md"
 echo Done. Claude Code is now using the updated files.
 pause
+```
 
-Add sync-to-claude.bat to the repo root. Double-click it after editing
-agent/skill files to keep Claude Code in sync.
+Double-click `sync-to-claude.bat` after editing agent/skill files to keep Claude Code in sync.
 
 ## What NOT to put in this repo
 - API keys, passwords, tokens of any kind
 - `.env` files
-- bswppt.py — Python library, only runs locally
-- assets/ images — only used by the local Python build
-- Brightly Theme.pptx — local template only
-Any file containing secrets, credentials, or personal data
-
-# Future Iterations: 
-- the bsw-ppt-builder.md agent, BSWBRANDING.md skill, and SKILL.md skill will adapt to creating powerpoints specific to Brightly, but not specific to the LST Global Monthly Meeting powerpoint. That is just the focus of this first iteration.
+- `sieppt.py` or `bswppt.py` — Python libraries, only run locally
+- `assets/` images — only used by the local Python build
+- `Brightly Theme.pptx` or any template file — local only
+- Any file containing secrets, credentials, or personal data
 
 ---
+
+# Future Iterations
+
+- Add more Siemens deck types as additional agents (e.g. QBR, product roadmap, executive briefing)
+- Add Section C metadata fields (presenter name, month/year, existing deck URL)
+- Support image uploads for decorative assets (infinity motif, logos) in the browser
