@@ -143,6 +143,31 @@ Regions: NA, Noida, EMEA, APAC, All.
 - **Birthdays/Anniversaries**: fill in actual names from source; never leave placeholders if data exists.
 - **What's Coming**: include next meeting date, focus topic, and holiday calendar dates for the coming month.
 
+### Topic placement rule
+
+When the user's direction or source material references a specific topic, subject, or request for slides, first determine which of the six sections it belongs in:
+
+| Section | Belongs here if the topic is about… |
+|---|---|
+| General Updates | Company news, tool changes, process announcements, survey results, AI/tools updates |
+| Process Reminders | Call-outs, QA notes, reminders and expectations for the support team |
+| Monthly Metrics | KPI data, utilization rates, NPS scores, regional performance numbers |
+| Shout Outs | Recognition, kudos quotes, NPS commendations by name |
+| Celebrations | Birthdays, work anniversaries, personal milestones |
+| What's Coming | Upcoming meetings, focus topics, upcoming dates/events, holiday calendar |
+
+If the topic fits clearly within one of these six sections, generate its slide(s) **within that section** (after that section's divider, before the next). If the topic does not fit cleanly within any section, generate its slide(s) **after Monthly Metrics and before Shout Outs**.
+
+### Section outline rule
+
+When a `━━━ SECTION OUTLINE ━━━` block is present in the user message:
+
+1. **High-fidelity input** — the user has written specific content they want included. Follow it closely.
+2. **Section placement** — if the outline names a section, place those slides within it. If none is named, default to after Monthly Metrics and before Shout Outs.
+3. **Verbatim vs embellished** — if the user says "verbatim", reproduce their content with minimal restructuring. If they say "embellish" or "expand", rewrite freely in Siemens presentation style. If unspecified, lightly polish (fix grammar, apply action titles) but preserve all key facts and meaning.
+4. **Format** — if the user specifies a format (bullets, table, two_columns, etc.), use it. If unspecified, choose the most appropriate format for the content.
+5. **Priority** — this block takes precedence over general DIRECTION instructions when they conflict.
+
 ## Step 4 — Render and visually inspect (never skip, local builds only)
 
 **On Windows:** use PowerShell COM to render every slide to PNG:

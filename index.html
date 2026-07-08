@@ -195,6 +195,20 @@
     input.error, select.error, textarea.error {
       border-color: var(--danger);
     }
+    .field-hint {
+      font-size: 12px;
+      color: var(--gray);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .field-hint ul {
+      margin: 4px 0 0 0;
+      padding-left: 18px;
+    }
+    .field-hint li {
+      margin-bottom: 3px;
+    }
+
     .field-error {
       font-size: 12px;
       color: var(--danger);
@@ -466,6 +480,20 @@
         <div class="field-error" id="notes-err"></div>
       </div>
 
+      <div class="field">
+        <label for="section-outline">Already have notes for a specific section? <span class="opt">(optional)</span></label>
+        <p class="field-hint">Paste an outline or notes about your section of the PowerPoint. Try to include:
+          <ul>
+            <li>Where it should go — <em>General Updates, Process Reminders, Metrics, Shoutouts/Celebrations,</em> or <em>What's Coming</em> (default: after Metrics slides)</li>
+            <li>The format you want — e.g. bullet points, multiple columns, a table</li>
+            <li>Whether your notes should be used <em>verbatim</em> or <em>embellished</em> into presentation style</li>
+            <li>Any other specifications you can think of!</li>
+          </ul>
+        </p>
+        <textarea id="section-outline" rows="8"
+          placeholder="e.g. 'Process Reminders section — 3 bullet points — verbatim: (1) Submit timesheets by Friday EOD. (2) Flag duplicate cases in Salesforce before closing. (3) All escalations need manager approval.'"></textarea>
+      </div>
+
       <!-- File upload -->
       <div class="field">
         <label>File uploads <span class="opt">(optional)</span></label>
@@ -636,7 +664,25 @@ Fixed deck section order (follow exactly):
 
 Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
 Each cell value: "value\\ndelta" — delta prefixed with + or -
-Regions: NA, Noida, EMEA, APAC, All` : '';
+Regions: NA, Noida, EMEA, APAC, All
+
+TOPIC PLACEMENT RULE:
+When the user's DIRECTION or RAW SOURCE MATERIAL references a specific topic, subject, or request for slides, first determine whether it belongs within one of the six meeting sections:
+- General Updates: company news, tool changes, process announcements, SFDC changes, survey results, AI/tools updates
+- Process Reminders: call-outs, quality assurance notes, reminders and expectations for the support team
+- Monthly Metrics: KPI data, utilization rates, NPS scores, regional performance numbers
+- Shout Outs: recognition, kudos quotes, NPS commendations by name
+- Celebrations: birthdays, work anniversaries, personal milestones
+- What's Coming: upcoming meetings, focus topics, upcoming dates or events, holiday calendar
+If the topic fits clearly within one of these six sections, generate the slide(s) WITHIN that section (after that section's divider, before the next section divider). If the topic does not fit cleanly within any of the six sections, generate the slide(s) AFTER the Monthly Metrics section and BEFORE the Shout Outs section divider.
+
+SECTION OUTLINE RULE:
+When a ━━━ SECTION OUTLINE ━━━ block is present in the user message:
+1. The user has written specific slide content they want included. Treat this as high-fidelity input.
+2. If the outline specifies a section (e.g. "Process Reminders"), place the generated slides within that section. If no section is specified, default to placing slides after Monthly Metrics and before Shout Outs.
+3. If the user says "verbatim", reproduce their content with minimal restructuring — do not embellish, add assertions, or rewrite. If they say "embellish" or "expand", freely rewrite in Siemens presentation style. If unspecified, lightly polish (fix grammar, apply action titles) but preserve the meaning and all key facts.
+4. If the user specifies a format (bullets, table, two_columns, etc.), use that body.format value. If unspecified, choose the most appropriate format for the content.
+5. This input takes priority over general DIRECTION instructions when they conflict.` : '';
 
     const strictRules = `
 
@@ -838,11 +884,12 @@ function validate() {
    BUILD USER MESSAGE
 ═══════════════════════════════════════════════════════════ */
 function buildUserMessage() {
-  const topic    = document.getElementById('topic').value.trim();
-  const pptType  = document.getElementById('ppt-type').value;
-  const pptLabel = document.getElementById('ppt-type').options[document.getElementById('ppt-type').selectedIndex].text;
-  const goals    = document.getElementById('goals').value.trim();
-  const rawNotes = document.getElementById('raw-notes').value.trim();
+  const topic          = document.getElementById('topic').value.trim();
+  const pptType        = document.getElementById('ppt-type').value;
+  const pptLabel       = document.getElementById('ppt-type').options[document.getElementById('ppt-type').selectedIndex].text;
+  const goals          = document.getElementById('goals').value.trim();
+  const rawNotes       = document.getElementById('raw-notes').value.trim();
+  const sectionOutline = document.getElementById('section-outline').value.trim();
 
   // "goals" is the primary directive — always included.
   // "rawNotes" is verbatim source material — only included when provided.
@@ -859,6 +906,15 @@ ${goals}`;
 ━━━ RAW SOURCE MATERIAL ━━━
 The following is verbatim source material (emails, transcripts, notes). Extract and restructure relevant content from it to populate the deck. Do not copy it verbatim — synthesize it:
 ${rawNotes}`;
+  }
+
+  if (sectionOutline) {
+    msg += `
+
+━━━ SECTION OUTLINE ━━━
+The user has provided a specific outline for one or more slides they want generated. Follow these notes closely — place slides in the specified section, use the specified format, and treat the content as verbatim unless the user explicitly says to embellish.
+
+${sectionOutline}`;
   }
 
   for (const entry of uploadedFiles) {
@@ -1052,18 +1108,9 @@ function buildSectionSlide(pptx, s, pageNum, meta) {
     line: { type: 'none' },
   });
 
-  // Giant section number in Bold Green
-  if (s.number) {
-    slide.addText(s.number, {
-      x: DIM.ML, y: 2.70, w: 3.50, h: 1.80,
-      fontSize: 100, bold: true, color: C.GREEN,
-      fontFace: 'Arial', align: 'left', valign: 'top',
-    });
-  }
-
-  // Section title in Bold Green (matches Siemens chapter divider archetype)
+  // Section title in Bold Green — full-width, vertically centered on slide
   slide.addText(s.title || '', {
-    x: 3.40, y: 3.05, w: 9.50, h: 1.50,
+    x: DIM.ML, y: 2.80, w: DIM.CW, h: 1.50,
     fontSize: 40, bold: true, color: C.GREEN,
     fontFace: 'Arial', align: 'left', valign: 'middle', wrap: true,
   });
@@ -1071,7 +1118,7 @@ function buildSectionSlide(pptx, s, pageNum, meta) {
   // Optional subtitle in White
   if (s.subtitle) {
     slide.addText(s.subtitle, {
-      x: 3.40, y: 4.65, w: 9.50, h: 0.55,
+      x: DIM.ML, y: 4.40, w: DIM.CW, h: 0.55,
       fontSize: 15, color: C.WHITE, fontFace: 'Arial', align: 'left',
     });
   }
@@ -1241,10 +1288,15 @@ function buildTable(slide, s, pptx) {
     }));
   });
 
+  // Vertically center the table between the content area top and the footer
+  const ROW_H  = 0.55;
+  const tableH = ROW_H * (1 + rows.length); // 1 header row + data rows
+  const tableY = DIM.BODY_Y + (DIM.FOOTER_Y - DIM.BODY_Y - tableH) / 2;
+
   slide.addTable(tableRows, {
-    x: DIM.ML, y: DIM.BODY_Y, w: DIM.CW,
+    x: DIM.ML, y: tableY, w: DIM.CW,
     colW: colW,
-    rowH: 0.55,
+    rowH: ROW_H,
     border: { type: 'solid', pt: 0.5, color: C.DARK_PETROL },
   });
 }
