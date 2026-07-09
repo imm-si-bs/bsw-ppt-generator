@@ -215,6 +215,35 @@
       margin-top: 2px;
     }
 
+    /* ── Theme upload (Section A) ───────────────────────────── */
+    .theme-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #f6f9ff;
+      border: 1px dashed #a0b8d8;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .theme-upload-row:hover { background: #edf3fc; border-color: var(--teal); }
+    .theme-upload-row input[type="file"] { display: none; }
+    .theme-upload-icon { font-size: 18px; flex-shrink: 0; }
+    .theme-upload-label { flex: 1; }
+    .theme-upload-label strong { font-size: 13px; color: var(--teal); }
+    .theme-upload-label span { font-size: 11.5px; color: var(--gray); display: block; margin-top: 1px; }
+    .theme-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #e0f5f5; border: 1px solid var(--teal);
+      border-radius: 4px; padding: 3px 8px; font-size: 12px; color: #005555;
+    }
+    .theme-chip-remove {
+      background: none; border: none; cursor: pointer;
+      color: #005555; font-size: 14px; padding: 0; line-height: 1;
+    }
+    .theme-chip-remove:hover { color: var(--danger); }
+
     /* ── Tips panel ─────────────────────────────────────────── */
     .tips-panel {
       background: var(--white);
@@ -614,6 +643,20 @@
           <option value="siemens-general">General Siemens Presentation</option>
         </select>
       </div>
+
+      <div class="field">
+        <label>Siemens brand theme <span class="opt">(optional — .thmx file)</span></label>
+        <p class="field-hint">Upload your Siemens Office Theme file to generate slides using the official Siemens layouts, Infinity motif, and logo — instead of the default hand-coded branding. The .thmx file is not stored or sent anywhere.</p>
+        <div class="theme-upload-row" id="theme-upload-row">
+          <input type="file" id="theme-input" accept=".thmx" />
+          <div class="theme-upload-icon">🎨</div>
+          <div class="theme-upload-label">
+            <strong>Click to upload Siemens.thmx</strong>
+            <span>Enables real Siemens slide layouts + Infinity motif</span>
+          </div>
+          <div id="theme-chip-wrap"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -744,6 +787,69 @@ if (typeof pdfjsLib !== 'undefined') {
 let systemPrompt = null;
 let uploadedFiles = []; // {file, name, size, text, instruction}
 let lastJson = null;
+let uploadedTheme = null; // parsed thmx: { masterXml, layouts:{}, layoutRels:{}, media:{}, themeXml, masterRels }
+
+/* ═══════════════════════════════════════════════════════════
+   THEME UPLOAD (.thmx)
+═══════════════════════════════════════════════════════════ */
+const themeInput = document.getElementById('theme-input');
+const themeRow   = document.getElementById('theme-upload-row');
+const themeChipWrap = document.getElementById('theme-chip-wrap');
+
+themeRow.addEventListener('click', () => themeInput.click());
+themeInput.addEventListener('change', async () => {
+  const f = themeInput.files[0];
+  if (!f) return;
+  try {
+    uploadedTheme = await parseThmx(f);
+    themeChipWrap.innerHTML = `
+      <span class="theme-chip">
+        ✓ ${escHtml(f.name)}
+        <button class="theme-chip-remove" title="Remove theme">✕</button>
+      </span>`;
+    themeChipWrap.querySelector('.theme-chip-remove').addEventListener('click', e => {
+      e.stopPropagation();
+      uploadedTheme = null;
+      themeChipWrap.innerHTML = '';
+      themeInput.value = '';
+    });
+  } catch (err) {
+    showError('Could not read theme file: ' + err.message);
+  }
+  themeInput.value = '';
+});
+
+async function parseThmx(file) {
+  const ab = await readAsArrayBuffer(file);
+  const zip = await JSZip.loadAsync(ab);
+  const files = zip.files;
+
+  // slide master + its rels
+  const masterXml  = await files['theme/slideMasters/slideMaster1.xml'].async('string');
+  const masterRels = await files['theme/slideMasters/_rels/slideMaster1.xml.rels'].async('string');
+
+  // theme color/font scheme
+  const themeXml = await files['theme/theme/theme1.xml'].async('string');
+
+  // Load ALL layouts so master relationship graph is intact
+  const layouts = {}, layoutRels = {};
+  for (const path of Object.keys(files)) {
+    const mL = path.match(/^theme\/slideLayouts\/slideLayout(\d+)\.xml$/);
+    if (mL) layouts[mL[1]] = await files[path].async('string');
+    const mR = path.match(/^theme\/slideLayouts\/_rels\/slideLayout(\d+)\.xml\.rels$/);
+    if (mR) layoutRels[mR[1]] = await files[path].async('string');
+  }
+
+  // media files (logo SVG, motif images referenced by layouts)
+  const media = {};
+  for (const [path, entry] of Object.entries(files)) {
+    if (path.startsWith('theme/media/')) {
+      media[path] = await entry.async('uint8array');
+    }
+  }
+
+  return { masterXml, masterRels, themeXml, layouts, layoutRels, media };
+}
 
 /* ═══════════════════════════════════════════════════════════
    SYSTEM PROMPT LOADER
@@ -1164,6 +1270,400 @@ function parseJson(raw) {
   let s = raw.trim();
   s = s.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
   return JSON.parse(s);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   OOXML BUILDER  (used when uploadedTheme is present)
+   Builds a .pptx from scratch filling real Siemens layout
+   placeholders — exactly like Isabella's deck.
+═══════════════════════════════════════════════════════════ */
+
+const NS = {
+  p:  'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"',
+  a:  'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
+  r:  'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+  rel:'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"',
+  ct: 'xmlns="http://schemas.openxmlformats.org/package/2006/content-types"',
+};
+const SLD_NS = `${NS.p} ${NS.a} ${NS.r}`;
+
+// Layout numbers (from thmx) for each of our slide types
+const LAYOUT = { title: 1, section: 40, content: 60, closing: 40 };
+
+// Reusable OOXML snippets
+const GRP_HEADER = `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`;
+const CLR_MAP = `<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>`;
+
+function xmlDecl() { return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`; }
+
+// Escape XML text content
+function xesc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Build a single <a:p> paragraph with simple text runs
+function buildRun(text, opts = {}) {
+  const sz    = opts.sz    ? ` sz="${opts.sz}"`   : '';
+  const b     = opts.bold  ? ` b="1"` : '';
+  const clr   = opts.color ? `<a:solidFill><a:srgbClr val="${opts.color}"/></a:solidFill>` : '';
+  const schClr= opts.schemeColor ? `<a:solidFill><a:schemeClr val="${opts.schemeColor}"/></a:solidFill>` : '';
+  const fill  = clr || schClr;
+  return `<a:r><a:rPr lang="en-US"${sz}${b}${fill ? '' : ''}>${fill}</a:rPr><a:t>${xesc(text)}</a:t></a:r>`;
+}
+
+function buildPara(runs, pPrXml = '') {
+  return `<a:p>${pPrXml}${runs}</a:p>`;
+}
+
+// Build a placeholder shape
+function buildPh(id, name, phType, phIdx, txBodyInner, spPrExtra = '') {
+  const phAttr = phType ? ` type="${phType}"` : '';
+  const idxAttr = phIdx != null ? ` idx="${phIdx}"` : '';
+  return `<p:sp>
+    <p:nvSpPr>
+      <p:cNvPr id="${id}" name="${xesc(name)}"/>
+      <p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>
+      <p:nvPr><p:ph${phAttr}${idxAttr}/></p:nvPr>
+    </p:nvSpPr>
+    <p:spPr>${spPrExtra}</p:spPr>
+    <p:txBody><a:bodyPr/><a:lstStyle/>${txBodyInner}</p:txBody>
+  </p:sp>`;
+}
+
+// Build a free absolute text box (for kicker — no layout placeholder for it)
+function buildTextBox(id, name, x, y, w, h, txBodyInner) {
+  const EMU = v => Math.round(v * 914400);
+  return `<p:sp>
+    <p:nvSpPr>
+      <p:cNvPr id="${id}" name="${xesc(name)}"/>
+      <p:cNvSpPr txBox="1"/>
+      <p:nvPr/>
+    </p:nvSpPr>
+    <p:spPr>
+      <a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm>
+      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+      <a:noFill/>
+    </p:spPr>
+    <p:txBody>
+      <a:bodyPr lIns="0" tIns="0" rIns="0" bIns="0" wrap="square"/>
+      <a:lstStyle/>
+      ${txBodyInner}
+    </p:txBody>
+  </p:sp>`;
+}
+
+/* ── Slide XML builders ─────────────────────────────────── */
+
+function ooxmlTitleSlide(s) {
+  const title = buildPh(2, 'Title', 'title', null,
+    buildPara(buildRun(s.title || '', { schemeColor: 'tx1' })));
+  const sub = buildPh(3, 'Subtitle', 'subTitle', 1,
+    (s.subtitle ? buildPara(buildRun(s.subtitle)) : '') +
+    (s.meta     ? buildPara(buildRun(s.meta, { color: '009999' })) : ''));
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sub}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+}
+
+function ooxmlSectionSlide(s, pageNum) {
+  const title = buildPh(2, 'Title', 'title', null,
+    buildPara(buildRun(s.title || '', { schemeColor: 'accent2', bold: true })));
+  // page number field placeholder (layout40 uses sldNum idx=11)
+  const sldNum = buildPh(3, 'SlideNum', 'sldNum', 11,
+    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+}
+
+function ooxmlClosingSlide(s, pageNum) {
+  const title = buildPh(2, 'Title', 'title', null,
+    buildPara(buildRun(s.title || 'Thank You', { schemeColor: 'accent2', bold: true })) +
+    (s.subtitle ? buildPara(buildRun(s.subtitle, { schemeColor: 'tx1' })) : ''));
+  const sldNum = buildPh(3, 'SlideNum', 'sldNum', 11,
+    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+}
+
+function buildTableFrame(s, idStart) {
+  const headers = s.body?.headers ?? [];
+  const rows    = s.body?.rows    ?? [];
+  if (!headers.length) return '';
+
+  const EMU = v => Math.round(v * 914400);
+  const COL_W = [1.10, 1.74, 1.74, 1.74, 1.74, 1.10, 1.10].map(EMU);
+  const ROW_H = EMU(0.50);
+  const tableW = COL_W.reduce((a,b) => a+b, 0);
+  const tableH = ROW_H * (1 + rows.length);
+  const tableX = EMU(0.60);
+  const tableY = EMU(1.60);
+
+  const cell = (text, isBold, fillColor, textColor, isRich) => {
+    let tc;
+    if (isRich) {
+      // value + newline + delta
+      const parts = String(text).split('\n');
+      const val   = parts[0] ?? '';
+      const delta = parts[1] ?? '';
+      const deltaNum = parseFloat((delta||'').replace(/[+%]/g,''));
+      const dColor = delta ? ((!isNaN(deltaNum) && deltaNum >= 0) ? '00FFB9' : 'C62828') : 'B3B3BE';
+      tc = `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>`+
+           `<a:p><a:r><a:rPr lang="en-US" b="1"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:rPr><a:t>${xesc(val)}</a:t></a:r></a:p>`+
+           `<a:p><a:r><a:rPr lang="en-US" sz="900"><a:solidFill><a:srgbClr val="${dColor}"/></a:solidFill></a:rPr><a:t>${xesc(delta)}</a:t></a:r></a:p>`+
+           `</a:txBody><a:tcPr><a:solidFill><a:srgbClr val="${fillColor}"/></a:solidFill></a:tcPr></a:tc>`;
+    } else {
+      tc = `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>`+
+           `<a:p><a:r><a:rPr lang="en-US"${isBold?' b="1"':''}><a:solidFill><a:srgbClr val="${textColor}"/></a:solidFill></a:rPr><a:t>${xesc(text)}</a:t></a:r></a:p>`+
+           `</a:txBody><a:tcPr><a:solidFill><a:srgbClr val="${fillColor}"/></a:solidFill></a:tcPr></a:tc>`;
+    }
+    return tc;
+  };
+
+  // Header row
+  let tableBody = `<a:tr h="${ROW_H}">${headers.map(h => cell(h, true, '00557C', 'FFFFFF', false)).join('')}</a:tr>`;
+  // Data rows
+  rows.forEach(row => {
+    tableBody += `<a:tr h="${ROW_H}">${row.map((c, ci) =>
+      ci === 0 ? cell(c, true, '00557C', '00FFB9', false) : cell(c, false, '0C0C3C', 'FFFFFF', true)
+    ).join('')}</a:tr>`;
+  });
+
+  const colGrid = COL_W.map(w => `<a:gridCol w="${w}"/>`).join('');
+
+  return `<p:graphicFrame>
+    <p:nvGraphicFramePr>
+      <p:cNvPr id="${idStart}" name="MetricsTable"/>
+      <p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>
+      <p:nvPr/>
+    </p:nvGraphicFramePr>
+    <p:xfrm><a:off x="${tableX}" y="${tableY}"/><a:ext cx="${tableW}" cy="${tableH}"/></p:xfrm>
+    <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">
+      <a:tbl><a:tblPr firstRow="1"><a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId></a:tblPr>
+      <a:tblGrid>${colGrid}</a:tblGrid>
+      ${tableBody}
+      </a:tbl>
+    </a:graphicData></a:graphic>
+  </p:graphicFrame>`;
+}
+
+function ooxmlContentSlide(s, pageNum) {
+  const isTable = s.body?.format === 'table';
+
+  // Kicker as absolute text box
+  const kicker = s.kicker ? buildTextBox(4, 'Kicker', 0.45, 0.48, 12.13, 0.30,
+    buildPara(buildRun(s.kicker.toUpperCase(), { sz: 1100, bold: true, color: '009999' }))) : '';
+
+  // Headline in title placeholder
+  const title = buildPh(2, 'Title', 'title', null,
+    buildPara(buildRun(s.headline || '', { schemeColor: 'tx1' })));
+
+  // Body: table uses graphicFrame; everything else uses ph idx=1
+  let bodyContent;
+  if (isTable) {
+    bodyContent = buildTableFrame(s, 10);
+  } else {
+    const bodyXml = buildBodyContent(s);
+    bodyContent = buildPh(3, 'Body', null, 1, bodyXml);
+  }
+
+  // Page number
+  const sldNum = buildPh(5, 'SlideNum', 'sldNum', 11,
+    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
+
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${kicker}${title}${bodyContent}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+}
+
+function buildBodyContent(s) {
+  const fmt = s.body?.format;
+  if (!fmt) return '';
+  if (fmt === 'bullets' || fmt === 'numbered') {
+    return (s.body.items || []).map((item, i) => {
+      const prefix = fmt === 'numbered' ? `${i+1}.  ` : '';
+      return buildPara(
+        buildRun(prefix + item, { color: 'B3B3BE' }),
+        `<a:pPr marL="0"${fmt==='bullets'?'><a:buChar char="•"/>':'><a:buNone/>'}</a:pPr>`
+      );
+    }).join('');
+  }
+  if (fmt === 'agenda') {
+    return (s.body.items || []).map(item => {
+      const heading = typeof item === 'object' ? item.heading : item;
+      const detail  = typeof item === 'object' ? item.detail  : '';
+      return buildPara(buildRun(heading, { color: 'FFFFFF', bold: true, sz: 1800 })) +
+             (detail ? buildPara(buildRun('    • ' + detail, { color: 'B3B3BE', sz: 1300 })) : '');
+    }).join('');
+  }
+  if (fmt === 'table') {
+    // Tables need a graphicFrame — handled directly in ooxmlContentSlide
+    return '';
+  }
+  if (fmt === 'two_columns') {
+    const left  = [s.body.left_header || '', ...(s.body.left_items  || [])];
+    const right = [s.body.right_header || '', ...(s.body.right_items || [])];
+    return left.map((item, i) =>
+      buildPara(buildRun(item, i === 0 ? { color: '00FFB9', bold: true } : { color: 'B3B3BE' }))
+    ).join('') +
+    buildPara(buildRun('', {})) +
+    right.map((item, i) =>
+      buildPara(buildRun(item, i === 0 ? { color: '00D7A0', bold: true } : { color: 'B3B3BE' }))
+    ).join('');
+  }
+  if (fmt === 'kudos') {
+    return (s.body.items || []).map(item => {
+      const [first, ...rest] = (item.name || '').split(' ');
+      return buildPara(
+        buildRun(first + ' ', { color: '00FFB9', bold: true }) +
+        buildRun(rest.join(' '), { color: 'FFFFFF' })
+      ) + buildPara(buildRun(item.quote || '', { color: 'B3B3BE' })) +
+           buildPara(buildRun('', {}));
+    }).join('');
+  }
+  if (fmt === 'nps_names') {
+    return (s.body.items || []).map(name => {
+      const [first, ...rest] = String(name).split(' ');
+      return buildPara(
+        buildRun(first + ' ', { color: '00FFB9', bold: true }) +
+        buildRun(rest.join(' '), { color: 'FFFFFF' })
+      );
+    }).join('');
+  }
+  return '';
+}
+
+/* ── ZIP assembly ────────────────────────────────────────── */
+
+async function buildOoxmlPptx(deckJson, theme) {
+  const zip = new JSZip();
+  const slides = deckJson.slides ?? [];
+  const meta   = deckJson.meta   ?? {};
+
+  // ── 1. Copy thmx assets into ppt/ namespace ──────────────
+  // master
+  zip.file('ppt/slideMasters/slideMaster1.xml', theme.masterXml);
+  zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', theme.masterRels);
+  // theme
+  zip.file('ppt/theme/theme1.xml', theme.themeXml);
+  // all 87 layouts (we need all of them in the master's relationship graph)
+  // — iterate what parseThmx loaded (we only loaded needed ones; load rest lazily
+  //   by copying from the thmx zip — but we don't have the original zip here)
+  // WORKAROUND: we stored needed layouts; for others the master rels will just
+  //   have dangling refs which is fine — PowerPoint ignores missing layouts.
+  for (const [n, xml] of Object.entries(theme.layouts)) {
+    zip.file(`ppt/slideLayouts/slideLayout${n}.xml`, xml);
+  }
+  for (const [n, xml] of Object.entries(theme.layoutRels)) {
+    zip.file(`ppt/slideLayouts/_rels/slideLayout${n}.xml.rels`, xml);
+  }
+  // media
+  for (const [thmxPath, data] of Object.entries(theme.media)) {
+    // thmxPath is like "theme/media/image1.svg" → ppt/media/image1.svg
+    const pptPath = thmxPath.replace('theme/', 'ppt/');
+    zip.file(pptPath, data);
+  }
+
+  // ── 2. Build slides ───────────────────────────────────────
+  const slideFiles = [];  // [{name, xml, layoutNum}]
+  let pageNum = 0;
+  for (const s of slides) {
+    let slideXml, layoutNum;
+    switch (s.type) {
+      case 'title_slide':
+        slideXml  = ooxmlTitleSlide(s);
+        layoutNum = LAYOUT.title;
+        break;
+      case 'section_slide':
+        pageNum++;
+        slideXml  = ooxmlSectionSlide(s, pageNum);
+        layoutNum = LAYOUT.section;
+        break;
+      case 'closing_slide':
+        pageNum++;
+        slideXml  = ooxmlClosingSlide(s, pageNum);
+        layoutNum = LAYOUT.closing;
+        break;
+      case 'content_slide':
+      default:
+        pageNum++;
+        slideXml  = ooxmlContentSlide(s, pageNum);
+        layoutNum = LAYOUT.content;
+        break;
+    }
+    const n = slideFiles.length + 1;
+    slideFiles.push({ name: `slide${n}`, xml: slideXml, layoutNum, notes: s.notes });
+  }
+
+  // Write slide XMLs + their rels (each slide points to its layout)
+  for (const sf of slideFiles) {
+    zip.file(`ppt/slides/${sf.name}.xml`, sf.xml);
+    zip.file(`ppt/slides/_rels/${sf.name}.xml.rels`,
+      `${xmlDecl()}<Relationships ${NS.rel}><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout${sf.layoutNum}.xml"/></Relationships>`);
+    if (sf.notes) {
+      // Speaker notes stub
+      zip.file(`ppt/notesSlides/notesSlide${slideFiles.indexOf(sf)+1}.xml`,
+        `${xmlDecl()}<p:notes ${SLD_NS}><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${xesc(sf.notes)}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:notes>`);
+    }
+  }
+
+  // ── 3. presentation.xml ───────────────────────────────────
+  // rId1 = slideMaster, rId2+ = slides, last = theme, presProps
+  let presRels = `${xmlDecl()}<Relationships ${NS.rel}>`
+    + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>`;
+  let sldIdLst = '';
+  slideFiles.forEach((sf, i) => {
+    const rId = `rId${i + 2}`;
+    presRels += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/${sf.name}.xml"/>`;
+    sldIdLst += `<p:sldId id="${256 + i}" r:id="${rId}"/>`;
+  });
+  const themeRId = `rId${slideFiles.length + 2}`;
+  const propsRId = `rId${slideFiles.length + 3}`;
+  presRels += `<Relationship Id="${themeRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>`;
+  presRels += `<Relationship Id="${propsRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>`;
+  presRels += `</Relationships>`;
+
+  const footerDate = meta.footer_date || '';
+  const footerAuth = meta.footer_author || 'LST Global Support';
+  const footerDept = meta.footer_dept || 'SUPPORT OPS';
+
+  zip.file('ppt/_rels/presentation.xml.rels', presRels);
+  zip.file('ppt/presentation.xml',
+    `${xmlDecl()}<p:presentation ${SLD_NS} saveSubsetFonts="1">` +
+    `<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>` +
+    `<p:sldIdLst>${sldIdLst}</p:sldIdLst>` +
+    `<p:sldSz cx="12192000" cy="6858000"/>` +
+    `<p:notesSz cx="6858000" cy="9144000"/>` +
+    `<p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle>` +
+    `</p:presentation>`);
+
+  // presProps
+  zip.file('ppt/presProps.xml',
+    `${xmlDecl()}<p:presentationPr ${SLD_NS}></p:presentationPr>`);
+
+  // ── 4. Root rels ─────────────────────────────────────────
+  zip.file('_rels/.rels',
+    `${xmlDecl()}<Relationships ${NS.rel}><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`);
+
+  // ── 5. [Content_Types].xml ────────────────────────────────
+  let overrides = `<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>`;
+  overrides += `<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>`;
+  overrides += `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>`;
+  overrides += `<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`;
+  for (const n of Object.keys(theme.layouts)) {
+    overrides += `<Override PartName="/ppt/slideLayouts/slideLayout${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`;
+  }
+  slideFiles.forEach((sf, i) => {
+    overrides += `<Override PartName="/ppt/slides/${sf.name}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+    if (sf.notes) {
+      overrides += `<Override PartName="/ppt/notesSlides/notesSlide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`;
+    }
+  });
+
+  zip.file('[Content_Types].xml',
+    `${xmlDecl()}<Types ${NS.ct}>` +
+    `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Default Extension="jpeg" ContentType="image/jpeg"/>` +
+    `<Default Extension="png" ContentType="image/png"/>` +
+    `<Default Extension="svg" ContentType="image/svg+xml"/>` +
+    overrides +
+    `</Types>`);
+
+  return await zip.generateAsync({ type: 'blob' });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1698,8 +2198,6 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     lastJson = deckJson;
 
     // Build and offer download
-    const pptx = buildPptx(deckJson);
-
     const topic    = document.getElementById('topic').value.trim();
     const pptType  = document.getElementById('ppt-type').value;
     const meta     = deckJson.meta ?? {};
@@ -1708,10 +2206,23 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     const typePrefix = pptType === 'lst-meeting' ? 'LST-Monthly' : 'Siemens-Deck';
     const filename = `${typePrefix}-${dateStr}-${safeTopic}.pptx`;
 
-    // Store download handler
-    document.getElementById('download-btn').onclick = () => {
-      pptx.writeFile({ fileName: filename });
-    };
+    if (uploadedTheme) {
+      // OOXML path — real Siemens layouts + motif
+      const blob = await buildOoxmlPptx(deckJson, uploadedTheme);
+      document.getElementById('download-btn').onclick = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      };
+    } else {
+      // PptxGenJS fallback path (no theme uploaded)
+      const pptx = buildPptx(deckJson);
+      document.getElementById('download-btn').onclick = () => {
+        pptx.writeFile({ fileName: filename });
+      };
+    }
 
     document.getElementById('output-sub').textContent =
       `${(deckJson.slides ?? []).length} slides built — ${filename}`;
