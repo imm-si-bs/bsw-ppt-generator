@@ -215,11 +215,108 @@
       margin-top: 2px;
     }
 
+    /* ── Tips panel ─────────────────────────────────────────── */
+    .tips-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .tips-panel summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      color: #1a1a1a;
+    }
+    .tips-panel summary::-webkit-details-marker { display: none; }
+    .tips-panel summary::after {
+      content: '›';
+      margin-left: auto;
+      font-size: 18px;
+      color: var(--gray-lt);
+      transition: transform .2s;
+    }
+    .tips-panel[open] summary::after { transform: rotate(90deg); }
+    .tips-panel summary:hover { background: #fafafa; }
+    .tips-body {
+      padding: 0 20px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .tips-section-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--teal);
+      margin: 18px 0 10px;
+    }
+    /* Good vs bad table */
+    .tips-compare {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    .tips-compare thead th {
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .tips-compare thead th.good { color: #2e7d32; }
+    .tips-compare thead th.bad  { color: var(--danger); }
+    .tips-compare tbody tr { border-bottom: 1px solid #f0f0ec; }
+    .tips-compare tbody tr:last-child { border-bottom: none; }
+    .tips-compare td {
+      padding: 7px 12px;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .tips-compare td.good { color: #1a4a1a; background: #f2fbf2; }
+    .tips-compare td.bad  { color: #5a1a1a; background: #fff5f5; }
+    /* Example callout */
+    .tips-example {
+      background: #f6f6f4;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .tips-example .ex-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 4px;
+    }
+    .tips-example .ex-label.bad  { color: var(--danger); }
+    .tips-example .ex-label.good { color: #2e7d32; }
+    .tips-example .ex-text { color: #3a3a3a; font-style: italic; }
+    /* Quick tips list */
+    .tips-list {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 12.5px;
+      color: #3a3a3a;
+      line-height: 1.7;
+    }
+    .tips-list li { margin-bottom: 2px; }
+
     /* ── File upload zone ───────────────────────────────────── */
     .upload-zone {
       border: 2px dashed var(--border);
       border-radius: var(--radius);
-      padding: 28px 20px;
+      padding: 32px 20px 28px;
       text-align: center;
       cursor: pointer;
       transition: border-color .15s, background .15s;
@@ -230,10 +327,16 @@
       background: var(--teal-lt);
     }
     .upload-zone input[type="file"] { display: none; }
-    .upload-icon { font-size: 28px; margin-bottom: 8px; }
-    .upload-text { font-size: 13px; color: var(--gray); }
-    .upload-text strong { color: var(--teal); }
-    .upload-exts { font-size: 11px; color: var(--gray-lt); margin-top: 4px; }
+    .upload-icon {
+      margin-bottom: 10px;
+      color: var(--teal);
+      opacity: .75;
+    }
+    .upload-zone:hover .upload-icon,
+    .upload-zone.drag-over .upload-icon { opacity: 1; }
+    .upload-text { font-size: 13.5px; color: var(--gray); }
+    .upload-text strong { color: var(--teal); font-size: 14px; }
+    .upload-exts { font-size: 11px; color: var(--gray-lt); margin-top: 6px; }
 
     /* ── File chips ─────────────────────────────────────────── */
     #file-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
@@ -430,6 +533,65 @@
 <!-- ─── MAIN ──────────────────────────────────────────────── -->
 <main>
 
+  <!-- TIPS PANEL -->
+  <details class="tips-panel">
+    <summary>💡 Tips for better results</summary>
+    <div class="tips-body">
+
+      <div class="tips-section-label">What produces good vs. bad output</div>
+      <table class="tips-compare">
+        <thead>
+          <tr>
+            <th class="good">✅ Good input</th>
+            <th class="bad">❌ Bad input</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="good">A full meeting transcript — even messy, unformatted notes</td>
+            <td class="bad">"Make me a deck about last month"</td>
+          </tr>
+          <tr>
+            <td class="good">A CSV with exact metric values, targets, and month-over-month deltas</td>
+            <td class="bad">Typing numbers into the notes field without column context</td>
+          </tr>
+          <tr>
+            <td class="good">"Lead with the NPS win, then process reminder, keep it under 15 slides"</td>
+            <td class="bad">"Make it good" or "use your judgment"</td>
+          </tr>
+          <tr>
+            <td class="good">Uploading the raw notes file and using the instruction box to say what section it belongs to</td>
+            <td class="bad">Pasting everything into one box with no labels or context</td>
+          </tr>
+          <tr>
+            <td class="good">"Audience is 40 global support reps — casual tone, motivating, 20-min runtime"</td>
+            <td class="bad">No audience or tone context</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="tips-example">
+        <div class="ex-label bad">✗ Bad prompt</div>
+        <div class="ex-text">"Create slides for the July support team meeting"</div>
+      </div>
+      <div class="tips-example" style="margin-top:8px;">
+        <div class="ex-label good">✓ Good prompt</div>
+        <div class="ex-text">"July 2026 LST Global Support Team Meeting. Audience: 40 reps across NA, EMEA, APAC, Noida. Lead with the NPS improvement (71 this month, up from 68). Remind team about new escalation policy effective Aug 1. Shout out Jane D. in EMEA for the ServiceNow migration win. Keep it upbeat — 20 min runtime."</div>
+      </div>
+
+      <div class="tips-section-label" style="margin-top:20px;">Quick tips</div>
+      <ul class="tips-list">
+        <li><strong>Upload a metrics CSV</strong> — Claude reads numbers more reliably from a file than from typed values in a text box</li>
+        <li><strong>Paste transcripts verbatim</strong> — Claude extracts structure from messy, unedited text; no need to clean it up first</li>
+        <li><strong>Use the Section Outline field</strong> if you already know exactly what you want in a specific slide</li>
+        <li><strong>Add per-file instructions</strong> after uploading — e.g. "this is the metrics data for July" or "these are transcripts from the past 4 weeks"</li>
+        <li><strong>More context is always better</strong> — there is no such thing as too much source material</li>
+        <li><strong>Review every slide</strong> before distributing — placeholder slides will include speaker notes explaining what to fill in</li>
+      </ul>
+
+    </div>
+  </details>
+
   <!-- SECTION A -->
   <div class="form-card">
     <div class="section-header">
@@ -466,17 +628,42 @@
     </div>
     <div class="fields">
 
+      <!-- File upload — moved to top of Section B -->
+      <div class="field">
+        <label>Supporting files <span class="opt">(optional)</span></label>
+        <p class="field-hint">Upload any source material — metrics CSVs, meeting transcripts (.txt/.md/.docx), existing decks (.pptx), or PDFs. After uploading, use the instruction box on each file to tell Claude how to use it.</p>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input"
+            accept=".txt,.md,.csv,.docx,.pptx,.pdf"
+            multiple />
+          <div class="upload-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            <strong>Drop files here</strong> or click to browse
+          </div>
+          <div class="upload-exts">.txt · .md · .csv · .docx · .pptx · .pdf</div>
+        </div>
+        <div id="file-list"></div>
+      </div>
+
       <div class="field">
         <label for="goals">What should this deck cover? <span class="req">*</span></label>
+        <p class="field-hint">Describe the deck's purpose and key themes. Include: intended audience, any specific messages to land, tone (formal/casual), and anything Claude should prioritize. The more specific, the better.</p>
         <textarea id="goals" rows="4"
-          placeholder="Describe the deck's purpose, themes, and anything Claude should prioritize or highlight. This is the primary direction — be specific. e.g. &quot;July 2026 LST monthly meeting. Big NPS win in APAC this month. Need a process reminder about timesheet compliance. All-hands scheduled for Aug 5.&quot;"></textarea>
+          placeholder="e.g. &quot;July 2026 LST monthly meeting. Audience: 40 global support reps. Big NPS win in APAC this month — lead with that. Need a process reminder about timesheet compliance by Friday. All-hands scheduled for Aug 5. Keep it upbeat, ~20 min runtime.&quot;"></textarea>
         <div class="field-error" id="goals-err"></div>
       </div>
 
       <div class="field">
         <label for="raw-notes">Raw notes, emails, or transcripts <span class="opt">(optional)</span></label>
+        <p class="field-hint">Paste verbatim source material here — a meeting transcript, email thread, bullet dump, anything word-for-word. Claude will extract and restructure it. No need to clean it up first; messy text is fine.</p>
         <textarea id="raw-notes" rows="7"
-          placeholder="Paste verbatim source material here — a copied email thread, meeting transcript, bullet dump, anything word-for-word. Claude will extract and restructure it. If you've covered everything above, you can leave this blank."></textarea>
+          placeholder="Paste any raw source material here — Claude will pull out what's relevant and ignore the rest."></textarea>
         <div class="field-error" id="notes-err"></div>
       </div>
 
@@ -492,22 +679,6 @@
         </p>
         <textarea id="section-outline" rows="8"
           placeholder="e.g. 'Process Reminders section — 3 bullet points — verbatim: (1) Submit timesheets by Friday EOD. (2) Flag duplicate cases in Salesforce before closing. (3) All escalations need manager approval.'"></textarea>
-      </div>
-
-      <!-- File upload -->
-      <div class="field">
-        <label>File uploads <span class="opt">(optional)</span></label>
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="file-input"
-            accept=".txt,.md,.csv,.docx,.pptx,.pdf"
-            multiple />
-          <div class="upload-icon">📎</div>
-          <div class="upload-text">
-            <strong>Click to browse</strong> or drag &amp; drop files here
-          </div>
-          <div class="upload-exts">.txt · .md · .csv · .docx · .pptx · .pdf · up to 12,000 chars each</div>
-        </div>
-        <div id="file-list"></div>
       </div>
 
     </div>
