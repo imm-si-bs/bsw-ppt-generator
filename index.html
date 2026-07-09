@@ -819,6 +819,21 @@ themeInput.addEventListener('change', async () => {
   themeInput.value = '';
 });
 
+// ── Layout introspection helpers ─────────────────────────────
+// Returns 'dark' when the layout inherits the master (dark) background,
+// 'light' when it sets an explicit white/light override.
+function layoutBgType(xml) {
+  if (!xml.includes('<p:bg>')) return 'dark'; // no override → inherits dark master
+  if (/<p:bg[\s\S]{0,600}<a:srgbClr val="[Ff]{6}"/m.test(xml)) return 'light';
+  if (/<p:bg[\s\S]{0,600}<a:schemeClr val="lt[12]"/m.test(xml)) return 'light';
+  return 'dark';
+}
+
+// Counts content body placeholders (idx >= 1) — used to detect 2/3/4-col layouts
+function countContentPhs(xml) {
+  return (xml.match(/<p:ph[^>]+idx="[1-9]/g) || []).length;
+}
+
 async function parseThmx(file) {
   const ab = await readAsArrayBuffer(file);
   const zip = await JSZip.loadAsync(ab);
@@ -848,7 +863,76 @@ async function parseThmx(file) {
     }
   }
 
-  return { masterXml, masterRels, themeXml, layouts, layoutRels, media };
+  // ── Build layout capability map ───────────────────────────
+  // col1/col2/col3/col4: arrays of {n, bg} — n=layout number, bg='dark'|'light'
+  // thankyou: layout number for the Thank You closing slide
+  const layoutMap = { col1: [], col2: [], col3: [], col4: [], thankyou: null };
+
+  // First pass: find the Thank You layout by scanning all layouts for the name.
+  // The <p:cSld> name attribute can appear as the first attribute or after others,
+  // so match it with a permissive regex. Check a broad range (80+) since the exact
+  // layout number can vary between thmx versions.
+  for (const [numStr, xml] of Object.entries(layouts)) {
+    const n = parseInt(numStr);
+    const nameM = xml.match(/name="([^"]+)"/i); // first name= attr in the doc
+    const name  = nameM ? nameM[1].toLowerCase() : '';
+    if (name.includes('thank you') || name === 'thank you') {
+      layoutMap.thankyou = n;
+      break;
+    }
+  }
+  // Broader fallback: any layout whose name contains "thank"
+  if (layoutMap.thankyou === null) {
+    for (const [numStr, xml] of Object.entries(layouts)) {
+      const nameM = xml.match(/name="([^"]+)"/i);
+      const name  = nameM ? nameM[1].toLowerCase() : '';
+      if (name.includes('thank')) {
+        layoutMap.thankyou = parseInt(numStr);
+        break;
+      }
+    }
+  }
+
+  // Second pass: build content layout pools.
+  // EXCLUDE the Thank You layout (and all nearby special-use layouts 85+) from
+  // content slide pools — they must never be randomly assigned to content slides.
+  const SPECIAL_LAYOUT_THRESHOLD = 85; // layouts >= this are title/closing/special
+  for (const [numStr, xml] of Object.entries(layouts)) {
+    const n    = parseInt(numStr);
+    const bg   = layoutBgType(xml);
+    const cols = countContentPhs(xml);
+
+    // Skip special/closing layouts — never use them for content slides
+    if (n >= SPECIAL_LAYOUT_THRESHOLD) continue;
+    // Also skip layouts 1 and 40 which are reserved for title and section dividers
+    if (n === 1 || n === 40) continue;
+
+    if      (cols <= 1) layoutMap.col1.push({ n, bg });
+    else if (cols === 2) layoutMap.col2.push({ n, bg });
+    else if (cols === 3) layoutMap.col3.push({ n, bg });
+    else                 layoutMap.col4.push({ n, bg });
+  }
+
+  // Fallback: if no col1 layouts found, use layout 60 (light bg) as safety net
+  if (!layoutMap.col1.length) layoutMap.col1.push({ n: 60, bg: 'light' });
+
+  // Debug: log layout map so you can verify in DevTools (F12 → Console after uploading thmx)
+  console.log('[parseThmx] layoutMap:', {
+    thankyou: layoutMap.thankyou,
+    col1_count: layoutMap.col1.length,
+    col2_count: layoutMap.col2.length,
+    col3_count: layoutMap.col3.length,
+    col4_count: layoutMap.col4.length,
+  });
+  // Log ALL layout names so you can find the right Thank You layout number if detection misses it
+  const layoutNames = {};
+  for (const [numStr, xml] of Object.entries(layouts)) {
+    const m = xml.match(/name="([^"]+)"/i);
+    if (m) layoutNames[numStr] = m[1];
+  }
+  console.log('[parseThmx] layout names:', layoutNames);
+
+  return { masterXml, masterRels, themeXml, layouts, layoutRels, media, layoutMap };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -901,6 +985,7 @@ The JSON schema:
     // content_slide: { "type": "content_slide", "kicker": "SECTION NAME", "headline": "Action title assertion",
     //   "body": { "format": "agenda"|"bullets"|"table"|"kudos"|"nps_names"|"two_columns"|"numbered",
     //     ... format-specific fields ... },
+    //   "layout_hint": "single"|"two_col"|"three_col"|"four_col",   // OPTIONAL
     //   "notes": "optional — speaker notes for the presenter (use for placeholders)" }
     //
     // content_slide body formats:
@@ -911,6 +996,11 @@ The JSON schema:
     // kudos:       { "format": "kudos", "items": [{"name":"...","quote":"..."}] }
     // nps_names:   { "format": "nps_names", "items": ["First Last"] }
     // two_columns: { "format": "two_columns", "left_header": "...", "left_items": ["..."], "right_header": "...", "right_items": ["..."] }
+    //
+    // layout_hint (optional on content_slide): use "two_col", "three_col", or "four_col" when the slide
+    // content genuinely groups into that many parallel buckets. The renderer picks the best matching
+    // layout from the uploaded theme — including both dark and light slides for visual variety.
+    // Text colors adapt automatically to the selected background. Omit or use "single" for all other slides.
     //
     // Any slide type can include "notes": "..." — rendered as PowerPoint speaker notes.
   ]
@@ -1287,8 +1377,37 @@ const NS = {
 };
 const SLD_NS = `${NS.p} ${NS.a} ${NS.r}`;
 
-// Layout numbers (from thmx) for each of our slide types
-const LAYOUT = { title: 1, section: 40, content: 60, closing: 40 };
+// ── Smart layout picker ──────────────────────────────────────
+// Returns { n: layoutNumber, bg: 'dark'|'light' }.
+// Rotates through the layoutMap pools for visual variety.
+// Fixed layouts: title=1, section=40, Questions closing=40.
+// Thank You closing uses layoutMap.thankyou if found.
+// Content slides rotate across col1 (single body) by default;
+// layout_hint of 'two_col'|'three_col'|'four_col' selects the matching pool.
+// Absolute-positioned formats (table/kudos/nps_names/two_columns) use col1
+// because they build their own text boxes and just need a background.
+function pickLayout(theme, fmt, hint, contentSlideIndex) {
+  const lm = (theme && theme.layoutMap) || {
+    col1: [{ n: 60, bg: 'light' }], col2: [], col3: [], col4: [], thankyou: null,
+  };
+
+  // Absolute-positioned formats — only need a dark/light bg, not body placeholders
+  const absFormats = ['table', 'kudos', 'nps_names', 'two_columns'];
+  if (absFormats.includes(fmt)) {
+    const pool = lm.col1;
+    return pool[contentSlideIndex % pool.length] ?? { n: 60, bg: 'light' };
+  }
+
+  // layout_hint selects 2/3/4-col pool when available
+  const hintPool = { two_col: lm.col2, three_col: lm.col3, four_col: lm.col4 }[hint];
+  if (hintPool && hintPool.length) {
+    return hintPool[contentSlideIndex % hintPool.length];
+  }
+
+  // Default: rotate through col1 for variety (dark + light mixed naturally)
+  const pool = lm.col1;
+  return pool[contentSlideIndex % pool.length] ?? { n: 60, bg: 'light' };
+}
 
 // Reusable OOXML snippets
 const GRP_HEADER = `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`;
@@ -1368,15 +1487,22 @@ function ooxmlSectionSlide(s) {
   // valid GUIDs. Adding our own sldNum with a non-GUID id triggers a repair prompt.
   const title = buildPh(2, 'Title', 'title', null,
     buildPara(buildRun(s.title || '', { schemeColor: 'accent2', bold: true })));
-  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+  // Subtitle as a free text box below the title (layout40 has no subtitle placeholder)
+  const subtitle = s.subtitle ? buildTextBox(5, 'Subtitle', 0.60, 4.40, 12.13, 0.55,
+    buildPara(buildRun(s.subtitle, { color: 'FFFFFF', sz: 1500 }))) : '';
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${subtitle}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
 function ooxmlClosingSlide(s) {
-  // Same — let the layout handle sldNum/footer; we only set the title text
+  // Title in title placeholder — cap at 64pt so it doesn't overflow layout bounds.
+  // (Layout 40 inherits 80pt from master; an explicit sz overrides that inheritance.)
   const title = buildPh(2, 'Title', 'title', null,
-    buildPara(buildRun(s.title || 'Thank You', { schemeColor: 'accent2', bold: true })) +
-    (s.subtitle ? buildPara(buildRun(s.subtitle, { schemeColor: 'tx1' })) : ''));
-  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+    buildPara(buildRun(s.title || 'Thank You', { schemeColor: 'accent2', bold: true, sz: 6400 })));
+  // Subtitle as a separate absolute text box — keeps it off the title placeholder
+  // so it can't inherit an oversized font and overflow.
+  const subtitle = s.subtitle ? buildTextBox(5, 'Subtitle', 0.60, 4.80, 12.13, 0.65,
+    buildPara(buildRun(s.subtitle, { color: 'B3B3BE', sz: 1500 }))) : '';
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${subtitle}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
 function buildTableFrame(s, idStart) {
@@ -1440,38 +1566,132 @@ function buildTableFrame(s, idStart) {
   </p:graphicFrame>`;
 }
 
-function ooxmlContentSlide(s, pageNum) {
-  const isTable = s.body?.format === 'table';
+// Override a placeholder's position by injecting an <a:xfrm> into <p:spPr>
+function phPositionXml(x, y, w, h) {
+  const EMU = v => Math.round(v * 914400);
+  return `<a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm>`;
+}
 
-  // Kicker as absolute text box
+// Text color sets for dark vs light layout backgrounds
+function makeTextColors(bgType) {
+  return bgType === 'dark'
+    ? { kicker: '009999', headline: 'FFFFFF', body: 'B3B3BE', name: 'FFFFFF', accent: '00FFB9', accent2: '00D7A0' }
+    : { kicker: '009999', headline: '000028', body: '444455', name: '000028', accent: '007755', accent2: '005544' };
+}
+
+// bgType: 'dark'|'light' — determines text colors; layout supplies the background
+function ooxmlContentSlide(s, pageNum, bgType) {
+  const tc  = makeTextColors(bgType ?? 'dark');
+  const fmt = s.body?.format;
+  const isTable    = fmt === 'table';
+  const isMultiCol = fmt === 'kudos' || fmt === 'nps_names' || fmt === 'two_columns';
+
+  // Kicker as absolute text box — always petrol, readable on both dark and light
   const kicker = s.kicker ? buildTextBox(4, 'Kicker', 0.45, 0.48, 12.13, 0.30,
-    buildPara(buildRun(s.kicker.toUpperCase(), { sz: 1100, bold: true, color: '009999' }))) : '';
+    buildPara(buildRun(s.kicker.toUpperCase(), { sz: 1100, bold: true, color: tc.kicker }))) : '';
 
-  // Headline in title placeholder
-  const title = buildPh(2, 'Title', 'title', null,
-    buildPara(buildRun(s.headline || '', { schemeColor: 'tx1' })));
+  // Headline in title placeholder — omit entirely when empty so the layout's
+  // demo placeholder text ("Divider slides have confident-looking...") never shows.
+  const title = s.headline
+    ? buildPh(2, 'Title', 'title', null,
+        buildPara(buildRun(s.headline, { color: tc.headline, bold: true, sz: 2400 })),
+        phPositionXml(0.60, 0.82, 12.13, 0.80))
+    : '';
 
-  // Body: table uses graphicFrame; everything else uses ph idx=1
+  // Body: multi-col / table formats build their own absolute elements.
+  // For single-body formats, only emit the body placeholder when there is actual
+  // content — an empty placeholder lets the layout's demo text bleed through.
   let bodyContent;
   if (isTable) {
     bodyContent = buildTableFrame(s, 10);
+  } else if (isMultiCol) {
+    bodyContent = buildOoxmlMultiCol(s, fmt, tc);
   } else {
-    const bodyXml = buildBodyContent(s);
-    bodyContent = buildPh(3, 'Body', null, 1, bodyXml);
+    const bodyXml = buildBodyContent(s, tc);
+    // Only emit body placeholder when it has content
+    bodyContent = bodyXml
+      ? buildPh(3, 'Body', null, 1, bodyXml, phPositionXml(0.60, 1.75, 12.13, 4.90))
+      : '';
   }
 
-  // Layout handles sldNum/footer — we only set content placeholders
+  // No <p:bg> override — the selected layout supplies the background naturally
   return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${kicker}${title}${bodyContent}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
-function buildBodyContent(s) {
+// Build absolute multi-column text boxes for kudos / nps_names / two_columns
+function buildOoxmlMultiCol(s, fmt, tc) {
+  const BODY_Y = 1.75;
+  const BODY_H = 4.90;
+
+  if (fmt === 'kudos') {
+    const items = s.body?.items ?? [];
+    const cols  = [[], [], []];
+    items.forEach((it, i) => cols[i % 3].push(it));
+    const colX = [0.60, 4.67, 8.74];
+    const colW = 3.80;
+    return colX.map((x, ci) => {
+      if (!cols[ci].length) return '';
+      const runs = [];
+      cols[ci].forEach(item => {
+        const [first, ...rest] = (item.name || '').split(' ');
+        runs.push(
+          buildPara(buildRun(first + ' ', { color: tc.accent, bold: true, sz: 1300 }) +
+                    buildRun(rest.join(' '), { color: tc.name, sz: 1300 }))
+        );
+        runs.push(buildPara(buildRun(item.quote || '', { color: tc.body, sz: 1100 })));
+        runs.push(buildPara(buildRun('', {})));
+      });
+      return buildTextBox(10 + ci, `KudosCol${ci}`, x, BODY_Y, colW, BODY_H, runs.join(''));
+    }).join('');
+  }
+
+  if (fmt === 'nps_names') {
+    const items = s.body?.items ?? [];
+    const cols  = [[], [], []];
+    items.forEach((name, i) => cols[i % 3].push(name));
+    const colX = [0.60, 4.67, 8.74];
+    const colW = 3.80;
+    return colX.map((x, ci) => {
+      if (!cols[ci].length) return '';
+      const runs = cols[ci].map(name => {
+        const [first, ...rest] = String(name).split(' ');
+        return buildPara(buildRun(first + ' ', { color: tc.accent, bold: true, sz: 1200 }) +
+                         buildRun(rest.join(' '), { color: tc.name, sz: 1200 }));
+      });
+      return buildTextBox(10 + ci, `NpsCol${ci}`, x, BODY_Y, colW, BODY_H, runs.join(''));
+    }).join('');
+  }
+
+  if (fmt === 'two_columns') {
+    const leftH  = s.body?.left_header  ?? 'Birthdays';
+    const rightH = s.body?.right_header ?? 'Anniversaries';
+    const leftI  = s.body?.left_items   ?? [];
+    const rightI = s.body?.right_items  ?? [];
+    const buildColXml = (header, items, headerColor) => {
+      const hdr = buildPara(buildRun(header, { color: headerColor, bold: true, sz: 1400 }));
+      const body = items.length
+        ? items.map(it => buildPara(buildRun('• ' + it, { color: tc.body, sz: 1200 }))).join('')
+        : buildPara(buildRun('None this month', { color: tc.body, sz: 1200 }));
+      return hdr + body;
+    };
+    const left  = buildTextBox(10, 'BirthdayCol',    0.60, BODY_Y, 5.90, BODY_H, buildColXml(leftH,  leftI,  tc.accent));
+    const right = buildTextBox(11, 'AnniversaryCol', 6.80, BODY_Y, 5.90, BODY_H, buildColXml(rightH, rightI, tc.accent2));
+    return left + right;
+  }
+
+  return '';
+}
+
+// tc = makeTextColors(bgType) — adapts text to dark or light layout backgrounds
+function buildBodyContent(s, tc) {
+  const t   = tc ?? makeTextColors('dark');
   const fmt = s.body?.format;
   if (!fmt) return '';
   if (fmt === 'bullets' || fmt === 'numbered') {
     return (s.body.items || []).map((item, i) => {
       const prefix = fmt === 'numbered' ? `${i+1}.  ` : '';
       return buildPara(
-        buildRun(prefix + item, { color: 'B3B3BE' }),
+        buildRun(prefix + item, { color: t.body }),
         `<a:pPr marL="0"${fmt==='bullets'?'><a:buChar char="•"/>':'><a:buNone/>'}</a:pPr>`
       );
     }).join('');
@@ -1480,44 +1700,15 @@ function buildBodyContent(s) {
     return (s.body.items || []).map(item => {
       const heading = typeof item === 'object' ? item.heading : item;
       const detail  = typeof item === 'object' ? item.detail  : '';
-      return buildPara(buildRun(heading, { color: 'FFFFFF', bold: true, sz: 1800 })) +
-             (detail ? buildPara(buildRun('    • ' + detail, { color: 'B3B3BE', sz: 1300 })) : '');
+      return buildPara(buildRun(heading, { color: t.headline, bold: true, sz: 1800 })) +
+             (detail ? buildPara(buildRun('    • ' + detail, { color: t.body, sz: 1300 })) : '');
     }).join('');
   }
   if (fmt === 'table') {
     // Tables need a graphicFrame — handled directly in ooxmlContentSlide
     return '';
   }
-  if (fmt === 'two_columns') {
-    const left  = [s.body.left_header || '', ...(s.body.left_items  || [])];
-    const right = [s.body.right_header || '', ...(s.body.right_items || [])];
-    return left.map((item, i) =>
-      buildPara(buildRun(item, i === 0 ? { color: '00FFB9', bold: true } : { color: 'B3B3BE' }))
-    ).join('') +
-    buildPara(buildRun('', {})) +
-    right.map((item, i) =>
-      buildPara(buildRun(item, i === 0 ? { color: '00D7A0', bold: true } : { color: 'B3B3BE' }))
-    ).join('');
-  }
-  if (fmt === 'kudos') {
-    return (s.body.items || []).map(item => {
-      const [first, ...rest] = (item.name || '').split(' ');
-      return buildPara(
-        buildRun(first + ' ', { color: '00FFB9', bold: true }) +
-        buildRun(rest.join(' '), { color: 'FFFFFF' })
-      ) + buildPara(buildRun(item.quote || '', { color: 'B3B3BE' })) +
-           buildPara(buildRun('', {}));
-    }).join('');
-  }
-  if (fmt === 'nps_names') {
-    return (s.body.items || []).map(name => {
-      const [first, ...rest] = String(name).split(' ');
-      return buildPara(
-        buildRun(first + ' ', { color: '00FFB9', bold: true }) +
-        buildRun(rest.join(' '), { color: 'FFFFFF' })
-      );
-    }).join('');
-  }
+  // two_columns, kudos, nps_names — handled by buildOoxmlMultiCol (absolute text boxes)
   return '';
 }
 
@@ -1555,29 +1746,39 @@ async function buildOoxmlPptx(deckJson, theme) {
   // ── 2. Build slides ───────────────────────────────────────
   const slideFiles = [];  // [{name, xml, layoutNum}]
   let pageNum = 0;
+  let contentSlideIndex = 0;  // separate counter for rotating content layouts
+
   for (const s of slides) {
     let slideXml, layoutNum;
     switch (s.type) {
       case 'title_slide':
         slideXml  = ooxmlTitleSlide(s);
-        layoutNum = LAYOUT.title;
+        layoutNum = 1;
         break;
       case 'section_slide':
         pageNum++;
-        slideXml  = ooxmlSectionSlide(s, pageNum);
-        layoutNum = LAYOUT.section;
+        slideXml  = ooxmlSectionSlide(s);
+        layoutNum = 40;
         break;
-      case 'closing_slide':
+      case 'closing_slide': {
         pageNum++;
-        slideXml  = ooxmlClosingSlide(s, pageNum);
-        layoutNum = LAYOUT.closing;
+        // Use dedicated Thank You layout when the title contains "thank"
+        const isThankyou = (s.title || '').toLowerCase().includes('thank');
+        layoutNum = isThankyou
+          ? (theme.layoutMap?.thankyou ?? 40)
+          : 40;
+        slideXml = ooxmlClosingSlide(s);
         break;
+      }
       case 'content_slide':
-      default:
+      default: {
         pageNum++;
-        slideXml  = ooxmlContentSlide(s, pageNum);
-        layoutNum = LAYOUT.content;
+        const { n: lNum, bg } = pickLayout(theme, s.body?.format, s.layout_hint, contentSlideIndex);
+        layoutNum = lNum;
+        slideXml  = ooxmlContentSlide(s, pageNum, bg);
+        contentSlideIndex++;
         break;
+      }
     }
     const n = slideFiles.length + 1;
     slideFiles.push({ name: `slide${n}`, xml: slideXml, layoutNum, notes: s.notes });

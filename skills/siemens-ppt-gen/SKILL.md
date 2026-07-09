@@ -64,12 +64,23 @@ Each slide in `slides[]` has a `type` field; remaining fields depend on the type
   "type": "content_slide",
   "kicker": "SECTION NAME",
   "headline": "Action title asserting the slide's key finding",
-  "body": { ... }
+  "body": { ... },
+  "layout_hint": "single"
 }
 ```
 - `kicker` ALL-CAPS in Petrol 11 pt bold
 - `headline` White 24–26 pt bold — must be a complete assertion, not a topic label
 - `body` is one of the body formats below
+- `layout_hint` is **optional** — tells the renderer which column-count layout to pick from the uploaded theme:
+
+| Value | When to use |
+|---|---|
+| `"single"` | Default — narrative or list content (omit or use this) |
+| `"two_col"` | Content divides into 2 parallel themes, phases, or categories |
+| `"three_col"` | Content divides into 3 parallel items |
+| `"four_col"` | Content divides into 4 parallel items |
+
+Only set `layout_hint` when the content genuinely groups into those columns. The renderer picks the best matching layout from the theme — including both dark and light background layouts for visual variety. Text colors automatically adapt to the selected background.
 
 ### `closing_slide`
 ```json
