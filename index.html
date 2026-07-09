@@ -1363,22 +1363,20 @@ function ooxmlTitleSlide(s) {
   return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sub}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
-function ooxmlSectionSlide(s, pageNum) {
+function ooxmlSectionSlide(s) {
+  // Only fill the title placeholder — layout40 already handles sldNum/footer with
+  // valid GUIDs. Adding our own sldNum with a non-GUID id triggers a repair prompt.
   const title = buildPh(2, 'Title', 'title', null,
     buildPara(buildRun(s.title || '', { schemeColor: 'accent2', bold: true })));
-  // page number field placeholder (layout40 uses sldNum idx=11)
-  const sldNum = buildPh(3, 'SlideNum', 'sldNum', 11,
-    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
-  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
-function ooxmlClosingSlide(s, pageNum) {
+function ooxmlClosingSlide(s) {
+  // Same — let the layout handle sldNum/footer; we only set the title text
   const title = buildPh(2, 'Title', 'title', null,
     buildPara(buildRun(s.title || 'Thank You', { schemeColor: 'accent2', bold: true })) +
     (s.subtitle ? buildPara(buildRun(s.subtitle, { schemeColor: 'tx1' })) : ''));
-  const sldNum = buildPh(3, 'SlideNum', 'sldNum', 11,
-    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
-  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
 function buildTableFrame(s, idStart) {
@@ -1462,11 +1460,8 @@ function ooxmlContentSlide(s, pageNum) {
     bodyContent = buildPh(3, 'Body', null, 1, bodyXml);
   }
 
-  // Page number
-  const sldNum = buildPh(5, 'SlideNum', 'sldNum', 11,
-    `<a:p><a:fld id="{SLDNUM-${pageNum}}" type="slidenum"><a:rPr lang="en-US"/><a:t>${pageNum}</a:t></a:fld></a:p>`);
-
-  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${kicker}${title}${bodyContent}${sldNum}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
+  // Layout handles sldNum/footer — we only set content placeholders
+  return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${kicker}${title}${bodyContent}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
 function buildBodyContent(s) {
@@ -1610,15 +1605,17 @@ async function buildOoxmlPptx(deckJson, theme) {
     presRels += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/${sf.name}.xml"/>`;
     sldIdLst += `<p:sldId id="${256 + i}" r:id="${rId}"/>`;
   });
-  const themeRId = `rId${slideFiles.length + 2}`;
-  const propsRId = `rId${slideFiles.length + 3}`;
-  presRels += `<Relationship Id="${themeRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>`;
-  presRels += `<Relationship Id="${propsRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>`;
-  presRels += `</Relationships>`;
+  // Required secondary parts — rIds after slides
+  const N = slideFiles.length;
+  const rIdPresProps   = `rId${N + 2}`;
+  const rIdTableStyles = `rId${N + 3}`;
+  const rIdViewProps   = `rId${N + 4}`;
 
-  const footerDate = meta.footer_date || '';
-  const footerAuth = meta.footer_author || 'LST Global Support';
-  const footerDept = meta.footer_dept || 'SUPPORT OPS';
+  const OX = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  presRels += `<Relationship Id="${rIdPresProps}"   Type="${OX}/presProps"   Target="presProps.xml"/>`;
+  presRels += `<Relationship Id="${rIdTableStyles}" Type="${OX}/tableStyles" Target="tableStyles.xml"/>`;
+  presRels += `<Relationship Id="${rIdViewProps}"   Type="${OX}/viewProps"   Target="viewProps.xml"/>`;
+  presRels += `</Relationships>`;
 
   zip.file('ppt/_rels/presentation.xml.rels', presRels);
   zip.file('ppt/presentation.xml',
@@ -1630,36 +1627,58 @@ async function buildOoxmlPptx(deckJson, theme) {
     `<p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle>` +
     `</p:presentation>`);
 
-  // presProps
+  // Required OOXML package parts (minimal valid content)
   zip.file('ppt/presProps.xml',
     `${xmlDecl()}<p:presentationPr ${SLD_NS}></p:presentationPr>`);
+  zip.file('ppt/tableStyles.xml',
+    `${xmlDecl()}<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"></a:tblStyleLst>`);
+  zip.file('ppt/viewProps.xml',
+    `${xmlDecl()}<p:viewPr ${SLD_NS}><p:normalViewPr><p:restoredLeft sz="15620"/><p:restoredTop sz="94660"/></p:normalViewPr><p:slideViewPr><p:cSldViewPr snapToGrid="0"><p:cViewPr varScale="1"><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx="78028800" cy="78028800"/></p:viewPr>`);
 
-  // ── 4. Root rels ─────────────────────────────────────────
+  // docProps (required for Office to recognise the package)
+  const now = new Date().toISOString().slice(0, 19) + 'Z';
+  zip.file('docProps/core.xml',
+    `${xmlDecl()}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:creator>BSW PPT Generator</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`);
+  zip.file('docProps/app.xml',
+    `${xmlDecl()}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Office PowerPoint</Application><Slides>${slideFiles.length}</Slides></Properties>`);
+
+  // ── 4. Root rels (presentation + docProps) ───────────────
   zip.file('_rels/.rels',
-    `${xmlDecl()}<Relationships ${NS.rel}><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`);
+    `${xmlDecl()}<Relationships ${NS.rel}>` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>` +
+    `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>` +
+    `</Relationships>`);
 
   // ── 5. [Content_Types].xml ────────────────────────────────
-  let overrides = `<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>`;
-  overrides += `<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>`;
-  overrides += `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>`;
-  overrides += `<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`;
+  const PML = 'application/vnd.openxmlformats-officedocument.presentationml';
+  const OXD = 'application/vnd.openxmlformats-officedocument';
+  let overrides =
+    `<Override PartName="/ppt/presentation.xml"          ContentType="${PML}.presentation.main+xml"/>` +
+    `<Override PartName="/ppt/presProps.xml"              ContentType="${PML}.presProps+xml"/>` +
+    `<Override PartName="/ppt/tableStyles.xml"            ContentType="${PML}.tableStyles+xml"/>` +
+    `<Override PartName="/ppt/viewProps.xml"              ContentType="${PML}.viewProps+xml"/>` +
+    `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="${PML}.slideMaster+xml"/>` +
+    `<Override PartName="/ppt/theme/theme1.xml"           ContentType="${OXD}.theme+xml"/>` +
+    `<Override PartName="/docProps/core.xml"              ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>` +
+    `<Override PartName="/docProps/app.xml"               ContentType="${OXD}.extended-properties+xml"/>`;
   for (const n of Object.keys(theme.layouts)) {
-    overrides += `<Override PartName="/ppt/slideLayouts/slideLayout${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`;
+    overrides += `<Override PartName="/ppt/slideLayouts/slideLayout${n}.xml" ContentType="${PML}.slideLayout+xml"/>`;
   }
   slideFiles.forEach((sf, i) => {
-    overrides += `<Override PartName="/ppt/slides/${sf.name}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+    overrides += `<Override PartName="/ppt/slides/${sf.name}.xml" ContentType="${PML}.slide+xml"/>`;
     if (sf.notes) {
-      overrides += `<Override PartName="/ppt/notesSlides/notesSlide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`;
+      overrides += `<Override PartName="/ppt/notesSlides/notesSlide${i+1}.xml" ContentType="${PML}.notesSlide+xml"/>`;
     }
   });
 
   zip.file('[Content_Types].xml',
     `${xmlDecl()}<Types ${NS.ct}>` +
     `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Default Extension="xml"  ContentType="application/xml"/>` +
     `<Default Extension="jpeg" ContentType="image/jpeg"/>` +
-    `<Default Extension="png" ContentType="image/png"/>` +
-    `<Default Extension="svg" ContentType="image/svg+xml"/>` +
+    `<Default Extension="png"  ContentType="image/png"/>` +
+    `<Default Extension="svg"  ContentType="image/svg+xml"/>` +
     overrides +
     `</Types>`);
 
