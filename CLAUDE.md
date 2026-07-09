@@ -43,12 +43,16 @@ PowerPoint decks by filling out a form and uploading source material. No termina
 no Python, no install required.
 
 The user fills in the form → Claude (via LiteLLM) reads the skill/agent files
-from this repo and generates structured slide content → PptxGenJS builds the
-.pptx in the browser → the user downloads it directly.
+from this repo and generates structured slide content → the browser builds the
+.pptx and triggers a download.
 
 Deck types available:
 - **LST Monthly Global Support Team Meeting** — fixed 17-slide structure, specific sections
 - **General Siemens Presentation** — flexible structure derived from source material
+
+**Two rendering paths exist (both in `index.html`):**
+- **OOXML path** (when user uploads `Siemens.thmx`): builds slides as raw OOXML filling real Siemens layout placeholders — inherits the actual Siemens master, Infinity motif images, and logo SVG from the .thmx file. This is the high-fidelity path.
+- **PptxGenJS fallback** (no .thmx uploaded): uses PptxGenJS with hand-coded Siemens brand colors/fonts. Slides are visually correct but use a gradient rect proxy instead of the real Infinity motif.
 
 ---
 
@@ -58,6 +62,7 @@ Deck types available:
 bsw-ppt-generator/
   index.html                  ← THE WEB APP — the only file users interact with
   CLAUDE.md                   ← this file
+  ROADMAP.md                  ← living project roadmap (priorities, decisions, status tracker)
   README.md                   ← editing instructions for humans
   sync-to-claude.bat          ← syncs repo files → ~/.claude/ for local Claude Code use
 
@@ -72,8 +77,9 @@ bsw-ppt-generator/
 ```
 
 **Files NOT in this repo (local only, browser can't use them):**
-- `~/.claude/skills/siemens-ppt/lib/sieppt.py` — Python library, local Claude Code only
-- `~/.claude/skills/siemens-ppt/assets/` — image files (infinity motif, logos), local only
+- `Siemens.thmx` — Siemens Office Theme file (slide master + 87 layouts + media). Cannot be committed to this public repo. Users upload it at generation time to enable the high-fidelity OOXML rendering path.
+- `~/.claude/skills/siemens-ppt/lib/sieppt.py` — Python library, local Claude Code only (irrelevant to the web app)
+- `~/.claude/skills/siemens-ppt/assets/` — image files, local only
 - `~/.claude/skills/bsw-ppt/` — Brightly branding files, local only
 
 ---
@@ -88,15 +94,23 @@ Page loads
 → concatenates all three into one system prompt
 
 User fills form + uploads files
-→ browser reads file contents client-side (FileReader API)
+→ optional: user uploads Siemens.thmx (parsed client-side, stored in uploadedTheme)
+→ browser reads source file contents client-side (FileReader API)
 → supports: .txt, .md, .csv, .docx, .pptx, .pdf
 
 Form submitted
 → sends system prompt + user message to LiteLLM API
 → Claude returns structured JSON describing every slide
 
-PptxGenJS (loaded from CDN) reads the JSON
-→ builds .pptx in browser memory
+Rendering (two paths, chosen at download time):
+  IF uploadedTheme present:
+    → buildOoxmlPptx() assembles .pptx as raw OOXML ZIP using JSZip
+    → each slide fills real Siemens layout placeholders from the .thmx
+    → layout provides background, logo SVG, Infinity motif, footer, page numbers
+  ELSE:
+    → buildPptx() uses PptxGenJS with hand-coded Siemens branding
+    → gradient rect proxy for Infinity motif, text "SIEMENS" wordmark
+
 → triggers browser download
 
 No server. No Python. No terminal.
@@ -226,14 +240,30 @@ Any slide can include a `"notes": "..."` field. This is rendered as PowerPoint s
 (visible in the Notes panel when editing). Used primarily for placeholder/TBD slides to give
 the presenter guidance on what to replace.
 
-## PptxGenJS rendering rules
+## Rendering rules
 
-PptxGenJS renders slides from Claude's JSON using the Siemens brand:
+### OOXML path (Siemens.thmx uploaded) — high-fidelity
+Each slide fills layout placeholders (`ph type="title"`, `ph idx="1"` for body). The Siemens layout provides everything else — background, Infinity motif image, logo SVG, footer, page numbers. Only content placeholders are written into the slide XML; the layout inherits the rest.
+
+Layout mapping:
+| Slide type | Siemens layout | Layout name |
+|---|---|---|
+| `title_slide` | slideLayout1 | Title Deep Blue 80pt |
+| `section_slide` | slideLayout40 | Chapter title dark 80pt |
+| `content_slide` | slideLayout60 | One object (small) |
+| `closing_slide` | slideLayout40 | Chapter title dark 80pt |
+
+Kicker text (no layout placeholder) is an absolute text box overlaid on the content area.
+Tables use `<p:graphicFrame>` OOXML rather than a body placeholder.
+Do NOT add `sldNum` placeholders — the layouts already contain valid GUID field elements for page numbering.
+
+### PptxGenJS path (fallback — no .thmx uploaded)
+PptxGenJS renders slides from Claude's JSON using hand-coded Siemens brand values:
 
 | Rule | Value |
 |---|---|
 | Background | `#000028` (Deep Blue) for all slides |
-| Cover/closing bg | Deep Blue + petrol→green gradient rect (proxy for infinity motif) |
+| Cover/closing bg | Deep Blue + petrol→green gradient rect (proxy for Infinity motif) |
 | Kicker color | `#009999` (Petrol), ALL-CAPS |
 | Accent/highlight | `#00FFB9` (Bold Green) — section numbers, first names, accent words |
 | Secondary accent | `#00D7A0` (Teal) |
@@ -242,11 +272,9 @@ PptxGenJS renders slides from Claude's JSON using the Siemens brand:
 | Table header fill | `#00557C` (Dark Petrol) |
 | Footer text | `#66667E` (Dim) — `Page N  Restricted  |  © Siemens 2026  |  author  |  dept  |  date` |
 | No emojis | Strip any emoji from Claude output before rendering |
-| No card grids | Content slides use bullets/table only |
 | Metrics delta colors | Bold Green if at/above target, Red if below |
-| Section dividers | Giant zero-padded number in Bold Green + Bold Green title + white subtitle on Deep Blue bg |
-| Page numbers | Sequential across all slides except title slide (section + closing slides also numbered) |
-| Slide masters | 4 branded masters defined: SIEMENS_TITLE, SIEMENS_CONTENT, SIEMENS_SECTION, SIEMENS_CLOSING |
+| Page numbers | Sequential across all slides except title slide |
+| Slide masters | 4 branded masters defined: SIEMENS_TITLE, SIEMENS_CONTENT, SIEMENS_SECTION, SIEMENS_CLOSING (for editing in PowerPoint only — not referenced by generated slides) |
 
 ## Form fields
 
@@ -255,14 +283,16 @@ PptxGenJS renders slides from Claude's JSON using the Siemens brand:
 |---|---|---|
 | Topic / rough title | ✅ | e.g. "July 2026 LST Global Support Team Meeting" |
 | PowerPoint type | ✅ | "LST Monthly Global Support Team Meeting" or "General Siemens Presentation" |
+| Siemens brand theme | optional | Upload `Siemens.thmx` — enables the high-fidelity OOXML rendering path with real Siemens layouts, Infinity motif, and logo |
 
 ### Section B — The Content
 | Field | Required | Notes |
 |---|---|---|
-| What should this deck cover? | ✅ | Free-text: goals, themes, anything Claude should prioritize |
-| Raw notes / transcripts | ✅ | Dump field: paste text, meeting notes, anything |
-| File uploads | optional | .txt, .md, .csv, .docx, .pptx, .pdf — all read client-side |
-| Instructions for each file | ✅ | Per-file text box: "this CSV is the metrics data", etc. |
+| Supporting files | optional | .txt, .md, .csv, .docx, .pptx, .pdf — shown first in Section B; all read client-side |
+| Instructions for each file | optional | Per-file text box: "this CSV is the monthly metrics data", etc. |
+| What should this deck cover? | ✅ | Free-text: audience, goals, themes, anything Claude should prioritize |
+| Raw notes / transcripts | optional | Verbatim source material — Claude extracts and restructures |
+| Already have notes for a specific section? | optional | Section outline: specify format, placement, verbatim vs. embellished |
 
 ## File upload handling
 
@@ -347,15 +377,22 @@ Double-click `sync-to-claude.bat` after editing agent/skill files to keep Claude
 ## What NOT to put in this repo
 - API keys, passwords, tokens of any kind
 - `.env` files
-- `sieppt.py` or `bswppt.py` — Python libraries, only run locally
+- `Siemens.thmx` — Siemens Office Theme file (internal/confidential; users upload it locally)
+- `sieppt.py` or `bswppt.py` — Python libraries, only run locally, irrelevant to web app
 - `assets/` images — only used by the local Python build
-- `Brightly Theme.pptx` or any template file — local only
+- `Brightly Theme.pptx` or any `.pptx`/`.potx` template file — local only
 - Any file containing secrets, credentials, or personal data
 
 ---
 
-# Future Iterations
+# Roadmap
 
-- Add more Siemens deck types as additional agents (e.g. QBR, product roadmap, executive briefing)
-- Add Section C metadata fields (presenter name, month/year, existing deck URL)
-- Support image uploads for decorative assets (infinity motif, logos) in the browser
+See [ROADMAP.md](ROADMAP.md) for the full prioritized plan with step-by-step implementation details and status tracker. Summary:
+
+- **P1 — Usability** ✅ Complete: file upload moved to top of Section B, field-hint guidance added to all fields, collapsible "Tips for better results" panel with good-vs-bad examples
+- **P2 — Quality** 🔶 In progress:
+  - Track A (Siemens .thmx injection): OOXML builder built and working; visual tuning in progress
+  - Track B (expanded slide layout types: `stat_slide`, `quote_slide`, `takeaway_slide`): not started
+- **P3 — New deck types** ⬜ Not started (after P1+P2):
+  - Team meeting presentation agent
+  - Executive/QBR presentation agent (blocked on Nick's examples)

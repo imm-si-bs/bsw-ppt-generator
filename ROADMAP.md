@@ -298,7 +298,7 @@ Recommendation: **two separate agents, not an agent + skill**. Here's why:
 | Priority | Track | Status |
 |---|---|---|
 | P1 — Usability | Form reorder + guidance | ✅ Complete (2026-07-09) |
-| P2 — Quality | Track A: Siemens theme injection | ⬜ Ready to implement — `Siemens.thmx` confirmed in repo root |
+| P2 — Quality | Track A: Siemens theme injection | 🔶 Built + working (2026-07-09) — visual tuning needed. Both paths (thmx OOXML and PptxGenJS fallback) confirmed opening cleanly. Next: compare outputs visually and decide what to keep from each. |
 | P2 — Quality | Track B: Expanded layout types | ⬜ Not started |
 | P3 — New types | 3A: Team meeting agent | ⬜ Not started (after P1+P2) |
 | P3 — New types | 3B: Executive/QBR agent | ⬜ Blocked on Q4 |
