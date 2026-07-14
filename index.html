@@ -641,6 +641,8 @@
         <select id="ppt-type">
           <option value="lst-meeting">LST Monthly Global Support Team Meeting</option>
           <option value="siemens-general">General Siemens Presentation</option>
+          <option value="team-meeting">Team Meeting Presentation</option>
+          <option value="executive-qbr">Executive / QBR Presentation</option>
         </select>
       </div>
 
@@ -773,6 +775,8 @@ const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator
 const AGENT_URLS = {
   'lst-meeting':     'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/lst-meeting-builder.md',
   'siemens-general': 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/siemens-ppt-builder.md',
+  'team-meeting':    'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/team-meeting-builder.md',
+  'executive-qbr':   'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/executive-qbr-builder.md',
 };
 
 /* PDF.js worker */
@@ -2423,7 +2427,13 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     const meta     = deckJson.meta ?? {};
     const dateStr  = meta.footer_date ?? new Date().toISOString().slice(0, 7);
     const safeTopic = topic.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
-    const typePrefix = pptType === 'lst-meeting' ? 'LST-Monthly' : 'Siemens-Deck';
+    const typePrefixMap = {
+      'lst-meeting':   'LST-Monthly',
+      'siemens-general': 'Siemens-Deck',
+      'team-meeting':  'Team-Meeting',
+      'executive-qbr': 'Executive-QBR',
+    };
+    const typePrefix = typePrefixMap[pptType] || 'Siemens-Deck';
     const filename = `${typePrefix}-${dateStr}-${safeTopic}.pptx`;
 
     if (uploadedTheme) {

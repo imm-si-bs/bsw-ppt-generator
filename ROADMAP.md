@@ -300,5 +300,5 @@ Recommendation: **two separate agents, not an agent + skill**. Here's why:
 | P1 — Usability | Form reorder + guidance | ✅ Complete (2026-07-09) |
 | P2 — Quality | Track A: Siemens theme injection | 🔶 Built + working (2026-07-09) — visual tuning needed. Both paths (thmx OOXML and PptxGenJS fallback) confirmed opening cleanly. Next: compare outputs visually and decide what to keep from each. |
 | P2 — Quality | Track B: Expanded layout types | ⬜ Not started |
-| P3 — New types | 3A: Team meeting agent | ⬜ Not started (after P1+P2) |
-| P3 — New types | 3B: Executive/QBR agent | ⬜ Blocked on Q4 |
+| P3 — New types | 3A: Team meeting agent | ✅ Complete (2026-07-14) — `agents/team-meeting-builder.md` created; wired into dropdown + AGENT_URLS |
+| P3 — New types | 3B: Executive/QBR agent | ✅ Complete (2026-07-14) — `agents/executive-qbr-builder.md` created (best-practices QBR arc); wired into dropdown + AGENT_URLS. Can be refined once Nick shares examples. |

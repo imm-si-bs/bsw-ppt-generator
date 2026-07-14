@@ -8,6 +8,8 @@ if not exist "%USERPROFILE%\.claude\skills\siemens-ppt-gen" mkdir "%USERPROFILE%
 :: Agents
 copy /Y "agents\lst-meeting-builder.md" "%USERPROFILE%\.claude\agents\lst-meeting-builder.md"
 copy /Y "agents\siemens-ppt-builder.md" "%USERPROFILE%\.claude\agents\siemens-ppt-builder.md"
+copy /Y "agents\team-meeting-builder.md" "%USERPROFILE%\.claude\agents\team-meeting-builder.md"
+copy /Y "agents\executive-qbr-builder.md" "%USERPROFILE%\.claude\agents\executive-qbr-builder.md"
 
 :: Skills
 copy /Y "skills\siemens-ppt-gen\SKILL.md" "%USERPROFILE%\.claude\skills\siemens-ppt-gen\SKILL.md"
