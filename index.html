@@ -341,6 +341,34 @@
     }
     .tips-list li { margin-bottom: 2px; }
 
+    /* ── Inline tip callouts (next to fields) ───────────────── */
+    .field-with-tip {
+      display: grid;
+      grid-template-columns: 168px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .field-tip-callout {
+      background: #f0fafa;
+      border: 1px solid rgba(0,153,153,.22);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: #2a5252;
+    }
+    .field-tip-callout .ftc-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--teal);
+      margin-bottom: 4px;
+    }
+    @media (max-width: 700px) {
+      .field-with-tip {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* ── File upload zone ───────────────────────────────────── */
     .upload-zone {
       border: 2px dashed var(--border);
@@ -608,16 +636,6 @@
         <div class="ex-text">"July 2026 LST Global Support Team Meeting. Audience: 40 reps across NA, EMEA, APAC, Noida. Lead with the NPS improvement (71 this month, up from 68). Remind team about new escalation policy effective Aug 1. Shout out Jane D. in EMEA for the ServiceNow migration win. Keep it upbeat — 20 min runtime."</div>
       </div>
 
-      <div class="tips-section-label" style="margin-top:20px;">Quick tips</div>
-      <ul class="tips-list">
-        <li><strong>Upload a metrics CSV</strong> — Claude reads numbers more reliably from a file than from typed values in a text box</li>
-        <li><strong>Paste transcripts verbatim</strong> — Claude extracts structure from messy, unedited text; no need to clean it up first</li>
-        <li><strong>Use the Section Outline field</strong> if you already know exactly what you want in a specific slide</li>
-        <li><strong>Add per-file instructions</strong> after uploading — e.g. "this is the metrics data for July" or "these are transcripts from the past 4 weeks"</li>
-        <li><strong>More context is always better</strong> — there is no such thing as too much source material</li>
-        <li><strong>Review every slide</strong> before distributing — placeholder slides will include speaker notes explaining what to fill in</li>
-      </ul>
-
     </div>
   </details>
 
@@ -646,10 +664,10 @@
         </select>
       </div>
 
-      <div class="field">
-        <label>Siemens brand theme <span class="opt">(optional — .thmx file)</span></label>
-        <p class="field-hint">Upload your Siemens Office Theme file to generate slides using the official Siemens layouts, Infinity motif, and logo — instead of the default hand-coded branding. The .thmx file is not stored or sent anywhere.</p>
-        <div class="theme-upload-row" id="theme-upload-row">
+      <div class="field" id="theme-field">
+        <label>Siemens brand theme</label>
+        <p class="field-hint" id="theme-hint">⏳ Loading Siemens theme in background…</p>
+        <div class="theme-upload-row" id="theme-upload-row" style="display:none">
           <input type="file" id="theme-input" accept=".thmx" />
           <div class="theme-upload-icon">🎨</div>
           <div class="theme-upload-label">
@@ -674,56 +692,74 @@
     <div class="fields">
 
       <!-- File upload — moved to top of Section B -->
-      <div class="field">
-        <label>Supporting files <span class="opt">(optional)</span></label>
-        <p class="field-hint">Upload any source material — metrics CSVs, meeting transcripts (.txt/.md/.docx), existing decks (.pptx), or PDFs. After uploading, use the instruction box on each file to tell Claude how to use it.</p>
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="file-input"
-            accept=".txt,.md,.csv,.docx,.pptx,.pdf"
-            multiple />
-          <div class="upload-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-          </div>
-          <div class="upload-text">
-            <strong>Drop files here</strong> or click to browse
-          </div>
-          <div class="upload-exts">.txt · .md · .csv · .docx · .pptx · .pdf</div>
+      <div class="field-with-tip">
+        <div class="field-tip-callout">
+          <div class="ftc-title">📎 File tips</div>
+          <strong>Upload a metrics CSV</strong> — Claude reads numbers more reliably from a structured file than from typed values.<br><br>
+          <strong>Add per-file instructions</strong> after uploading — e.g. "this is July metrics" or "these are transcripts from the past 4 weeks".
         </div>
-        <div id="file-list"></div>
+        <div class="field">
+          <label>Supporting files <span class="opt">(optional)</span></label>
+          <p class="field-hint">Upload any source material — metrics CSVs, meeting transcripts (.txt/.md/.docx), existing decks (.pptx), or PDFs. After uploading, use the instruction box on each file to tell Claude how to use it.</p>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input"
+              accept=".txt,.md,.csv,.docx,.pptx,.pdf"
+              multiple />
+            <div class="upload-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>Drop files here</strong> or click to browse
+            </div>
+            <div class="upload-exts">.txt · .md · .csv · .docx · .pptx · .pdf</div>
+          </div>
+          <div id="file-list"></div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="goals">What should this deck cover? <span class="req">*</span></label>
-        <p class="field-hint">Describe the deck's purpose and key themes. Include: intended audience, any specific messages to land, tone (formal/casual), and anything Claude should prioritize. The more specific, the better.</p>
-        <textarea id="goals" rows="4"
-          placeholder="e.g. &quot;July 2026 LST monthly meeting. Audience: 40 global support reps. Big NPS win in APAC this month — lead with that. Need a process reminder about timesheet compliance by Friday. All-hands scheduled for Aug 5. Keep it upbeat, ~20 min runtime.&quot;"></textarea>
-        <div class="field-error" id="goals-err"></div>
+      <div class="field-with-tip">
+        <div class="field-tip-callout">
+          <div class="ftc-title">💡 More context = better deck</div>
+          Include your audience, any specific messages to land, tone, and what you want to lead with. There's no such thing as too much context here.
+        </div>
+        <div class="field">
+          <label for="goals">What should this deck cover? <span class="req">*</span></label>
+          <p class="field-hint">Describe the deck's purpose and key themes. Include: intended audience, any specific messages to land, tone (formal/casual), and anything Claude should prioritize. The more specific, the better.</p>
+          <textarea id="goals" rows="4"
+            placeholder="e.g. &quot;July 2026 LST monthly meeting. Audience: 40 global support reps. Big NPS win in APAC this month — lead with that. Need a process reminder about timesheet compliance by Friday. All-hands scheduled for Aug 5. Keep it upbeat, ~20 min runtime.&quot;"></textarea>
+          <div class="field-error" id="goals-err"></div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="raw-notes">Raw notes, emails, or transcripts <span class="opt">(optional)</span></label>
-        <p class="field-hint">Paste verbatim source material here — a meeting transcript, email thread, bullet dump, anything word-for-word. Claude will extract and restructure it. No need to clean it up first; messy text is fine.</p>
-        <textarea id="raw-notes" rows="7"
-          placeholder="Paste any raw source material here — Claude will pull out what's relevant and ignore the rest."></textarea>
-        <div class="field-error" id="notes-err"></div>
+      <div class="field-with-tip">
+        <div class="field-tip-callout">
+          <div class="ftc-title">📋 Paste it messy</div>
+          Paste transcripts verbatim — Claude extracts structure from unedited text. No need to clean it up first.
+        </div>
+        <div class="field">
+          <label for="raw-notes">Raw notes, emails, or transcripts <span class="opt">(optional)</span></label>
+          <p class="field-hint">Paste verbatim source material here — a meeting transcript, email thread, bullet dump, anything word-for-word. Claude will extract and restructure it. No need to clean it up first; messy text is fine.</p>
+          <textarea id="raw-notes" rows="7"
+            placeholder="Paste any raw source material here — Claude will pull out what's relevant and ignore the rest."></textarea>
+          <div class="field-error" id="notes-err"></div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="section-outline">Already have notes for a specific section? <span class="opt">(optional)</span></label>
-        <p class="field-hint">Paste an outline or notes about your section of the PowerPoint. Try to include:
-          <ul>
-            <li>Where it should go — <em>General Updates, Process Reminders, Metrics, Shoutouts/Celebrations,</em> or <em>What's Coming</em> (default: after Metrics slides)</li>
-            <li>The format you want — e.g. bullet points, multiple columns, a table</li>
-            <li>Whether your notes should be used <em>verbatim</em> or <em>embellished</em> into presentation style</li>
-            <li>Any other specifications you can think of!</li>
-          </ul>
-        </p>
-        <textarea id="section-outline" rows="8"
-          placeholder="e.g. 'Process Reminders section — 3 bullet points — verbatim: (1) Submit timesheets by Friday EOD. (2) Flag duplicate cases in Salesforce before closing. (3) All escalations need manager approval.'"></textarea>
+      <div class="field-with-tip">
+        <div class="field-tip-callout">
+          <div class="ftc-title">🗂 Section outline tip</div>
+          Use this field when you know exactly what you want in a specific slide. Tell Claude where it goes, the format you want, and whether to use your notes <em>verbatim</em> or embellish them.
+        </div>
+        <div class="field">
+          <label for="section-outline">Already have notes for a specific section? <span class="opt">(optional)</span></label>
+          <p class="field-hint">Paste an outline or notes about your section of the PowerPoint. Try to include: where it should go (<em>General Updates, Process Reminders, Metrics, Shoutouts/Celebrations,</em> or <em>What's Coming</em>); the format you want (bullet points, columns, a table); whether your notes should be used <em>verbatim</em> or <em>embellished</em> into presentation style; and any other specifications.</p>
+          <textarea id="section-outline" rows="8"
+            placeholder="e.g. 'Process Reminders section — 3 bullet points — verbatim: (1) Submit timesheets by Friday EOD. (2) Flag duplicate cases in Salesforce before closing. (3) All escalations need manager approval.'"></textarea>
+        </div>
       </div>
 
     </div>
@@ -772,6 +808,7 @@ const MAX_CHARS        = 500000;
 
 const SKILL_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/SKILL.md';
 const BRAND_URL = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/skills/siemens-ppt-gen/BRANDING.md';
+const THMX_URL  = 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/Siemens.thmx';
 const AGENT_URLS = {
   'lst-meeting':     'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/lst-meeting-builder.md',
   'siemens-general': 'https://raw.githubusercontent.com/imm-si-bs/bsw-ppt-generator/main/agents/siemens-ppt-builder.md',
@@ -806,6 +843,8 @@ themeInput.addEventListener('change', async () => {
   if (!f) return;
   try {
     uploadedTheme = await parseThmx(f);
+    const themeHint = document.getElementById('theme-hint');
+    if (themeHint) themeHint.innerHTML = `✅ Theme overridden with <strong>${escHtml(f.name)}</strong>`;
     themeChipWrap.innerHTML = `
       <span class="theme-chip">
         ✓ ${escHtml(f.name)}
@@ -816,6 +855,7 @@ themeInput.addEventListener('change', async () => {
       uploadedTheme = null;
       themeChipWrap.innerHTML = '';
       themeInput.value = '';
+      if (themeHint) themeHint.innerHTML = '⚠️ No theme loaded — generate without it for the fallback style, or upload Siemens.thmx.';
     });
   } catch (err) {
     showError('Could not read theme file: ' + err.message);
@@ -838,8 +878,9 @@ function countContentPhs(xml) {
   return (xml.match(/<p:ph[^>]+idx="[1-9]/g) || []).length;
 }
 
-async function parseThmx(file) {
-  const ab = await readAsArrayBuffer(file);
+async function parseThmx(fileOrBuffer) {
+  // Accept either a File object (manual upload) or a raw ArrayBuffer (auto-fetch path)
+  const ab = fileOrBuffer instanceof ArrayBuffer ? fileOrBuffer : await readAsArrayBuffer(fileOrBuffer);
   const zip = await JSZip.loadAsync(ab);
   const files = zip.files;
 
@@ -957,14 +998,41 @@ async function loadSystemPrompt() {
   const agentLabel = agentUrl.split('/').pop();
 
   try {
-    text.textContent = 'Loading skill & agent files…';
+    text.textContent = 'Loading skill, agent & theme files…';
     dot.className = 'dot loading';
 
-    const [skill, brand, agent] = await Promise.all([
+    // Fetch theme as binary in parallel with text files
+    const fetchBinary = async (url, label) => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Failed to fetch ${label} (${r.status})`);
+      return r.arrayBuffer();
+    };
+
+    const [skill, brand, agent, thmxBuffer] = await Promise.all([
       fetchOne(SKILL_URL, 'SKILL.md'),
       fetchOne(BRAND_URL, 'BRANDING.md'),
       fetchOne(agentUrl, agentLabel),
+      fetchBinary(THMX_URL, 'Siemens.thmx').catch(() => null), // non-fatal — fallback to PptxGenJS
     ]);
+
+    // ── Auto-load theme ──────────────────────────────────────────
+    const themeHint  = document.getElementById('theme-hint');
+    const themeRow   = document.getElementById('theme-upload-row');
+    if (thmxBuffer) {
+      try {
+        uploadedTheme = await parseThmx(thmxBuffer);
+        themeHint.innerHTML = '✅ Siemens theme loaded automatically — high-fidelity OOXML slides enabled.';
+        themeRow.style.display = 'none';
+      } catch (e) {
+        uploadedTheme = null;
+        themeHint.innerHTML = '⚠️ Theme auto-load failed — <strong>upload Siemens.thmx manually</strong> for high-fidelity slides, or generate without it for the fallback style.';
+        themeRow.style.display = '';
+      }
+    } else {
+      uploadedTheme = null;
+      themeHint.innerHTML = '⚠️ Could not fetch Siemens theme — <strong>upload Siemens.thmx manually</strong> for high-fidelity slides, or generate without it for the fallback style.';
+      themeRow.style.display = '';
+    }
 
     // Base schema constraint appended to every deck type
     const baseConstraint = `
@@ -1070,7 +1138,8 @@ STRICT RULES:
     systemPrompt = [skill, brand, agent].join('\n\n---\n\n') + baseConstraint + lstConstraint + strictRules;
 
     dot.className = 'dot ok';
-    text.textContent = `Skill & agent files loaded (${agentLabel}) — ready to generate.`;
+    const themeStatus = uploadedTheme ? ' · Siemens theme ✓' : ' · fallback style (no theme)';
+    text.textContent = `Skill & agent files loaded (${agentLabel})${themeStatus} — ready to generate.`;
     document.getElementById('generate-btn').disabled = false;
 
   } catch (err) {
