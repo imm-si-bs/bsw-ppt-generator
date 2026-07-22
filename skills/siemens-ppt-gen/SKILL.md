@@ -138,6 +138,43 @@ Only set `layout_hint` when the content genuinely groups into those columns. The
 
 ---
 
+## Slide variety — layout_hint and format selection
+
+Every deck should feel visually varied — not a monotonous sequence of identical bullet slides. Two levers control this:
+
+### 1. Body format
+Use the format that best reflects the structure of the content:
+
+| Content structure | Best format |
+|---|---|
+| Unordered list of distinct points | `bullets` |
+| Ranked or sequential steps | `numbered` |
+| Comparative or tabular data | `table` |
+| Two parallel themes or categories | `two_columns` |
+| A section agenda or overview | `agenda` |
+| Recognition with names and quotes | `kudos` |
+| A name list | `nps_names` |
+
+Avoid using `bullets` as a default when a more structured format fits better. A deck where every content slide is `bullets` signals poor format selection — vary based on what the content actually is.
+
+### 2. Column layout via `layout_hint`
+
+When content on a slide naturally groups into **2, 3, or 4 parallel items** (parallel themes, phases, pillars, regions, steps — not just any list), set the matching `layout_hint`. The uploaded Siemens theme contains multi-column slide layouts; `layout_hint` selects the right one and the column structure comes from the template automatically.
+
+| Content structure | layout_hint |
+|---|---|
+| 2 parallel columns | `"two_col"` |
+| 3 parallel columns | `"three_col"` |
+| 4 parallel columns | `"four_col"` |
+
+Use `layout_hint` when the columns are genuinely parallel — the same type of information repeated across N buckets. Do not use it just to break up a list arbitrarily.
+
+When `layout_hint` is set, the body `format` is still `bullets` (or whatever fits). The column structure comes from the slide layout, not from a special format type.
+
+**Variety target:** No more than half the content slides in a deck should use identical `{format, layout_hint}` combinations. Consider what each slide's content genuinely calls for — a slide with 3 regional summaries is naturally `three_col`; a single key finding is naturally `bullets` with a strong headline; a comparison is `two_columns` or `table`. Let the content dictate the form.
+
+---
+
 ## Layout constants
 
 | Property | Value |

@@ -142,6 +142,7 @@ Regions: NA, Noida, EMEA, APAC, All.
 - **Kudos**: first name Bold Green, ≤9 per slide. Split across multiple slides if needed.
 - **Birthdays/Anniversaries**: fill in actual names from source; never leave placeholders if data exists.
 - **What's Coming**: include next meeting date, focus topic, and holiday calendar dates for the coming month.
+- **Vary formats within General Updates** — if the section has 3+ content slides, avoid using `bullets` for all of them. When content naturally groups into 2, 3, or 4 parallel items (e.g. three workstream updates, two policy changes side-by-side), use `two_columns` or set `layout_hint: "two_col"` / `"three_col"` / `"four_col"` so the Siemens template applies the appropriate multi-column layout. Sequential steps → `numbered`. A uniform bullet-only General Updates section is always wrong if the content has internal structure.
 
 ### Topic placement rule
 

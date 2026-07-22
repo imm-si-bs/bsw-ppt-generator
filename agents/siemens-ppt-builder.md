@@ -56,6 +56,8 @@ Save local builds to: `~/Desktop/[Topic-Slug]-Siemens-YYYY-MM.pptx`
 - Section dividers get sequential zero-padded numbers ("01", "02", ...)
 - Each content slide headline is a complete assertion — the audience should understand the point from the headline alone
 - Use `bullets` for lists of points, `numbered` for step-by-step sequences, `table` for comparative data, `two_columns` for side-by-side comparisons
+- When content on a slide naturally groups into 2, 3, or 4 parallel items (themes, phases, pillars, regions), set `layout_hint: "two_col"`, `"three_col"`, or `"four_col"` — the Siemens theme applies the matching multi-column slide layout automatically
+- **Vary formats deliberately** — no more than half the content slides in a deck should use identical `{format, layout_hint}`. A deck where every slide is plain `bullets` is always wrong. Let content dictate the form: sequential steps → `numbered`, comparative data → `table`, 3 parallel pillars → `three_col` with `layout_hint: "three_col"`, two contrasting ideas → `two_columns`. Review every content slide before finalizing — ask whether `bullets` is genuinely the best fit or just the default.
 - Never use card_grid — if you would normally use cards, restructure as bullets or a table
 
 ### Meta fields for the JSON output
