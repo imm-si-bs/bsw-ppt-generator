@@ -1079,23 +1079,25 @@ The JSON schema:
 
 Fixed deck section order (follow exactly):
 1. title_slide
-2. Agenda content_slide (kicker: "COMING UP", headline: "", format: agenda, items with heading+detail):
-   [{"heading":"General Updates","detail":"Company Updates & Support Updates"},{"heading":"Process Reminders","detail":"Call Outs & Quality Assurance"},{"heading":"Monthly Metrics","detail":"Global Support Metrics"},{"heading":"Shout Outs","detail":"NPS Wins & Team Recognition"},{"heading":"Celebrations","detail":"Birthdays & Anniversaries"},{"heading":"What's Coming","detail":"Key Dates & Focus Areas"}]
+2. Agenda content_slide (kicker: "COMING UP", headline: "", format: agenda). Always include the 6 standard items below. If source material contains a major initiative warranting its own section, add it as an extra agenda item between Monthly Metrics and Shout Outs:
+   Standard items: [{"heading":"General Updates","detail":"Company Updates & Support Updates"},{"heading":"Process Reminders","detail":"Call Outs & Quality Assurance"},{"heading":"Monthly Metrics","detail":"Global Support Metrics"},{"heading":"Shout Outs","detail":"NPS Wins & Team Recognition"},{"heading":"Celebrations","detail":"Birthdays & Anniversaries"},{"heading":"What's Coming","detail":"Key Dates & Focus Areas"}]
 3. section_slide General Updates (number: "01", subtitle: "Company news, initiatives, and key changes")
-4. content_slide(s) for General Updates
+4. content_slide(s) for General Updates — one slide per distinct topic
 5. section_slide Process Reminders (number: "02", subtitle: "Attendance, QA, and case handling expectations")
-6. content_slide for Process Reminders
+6. ONE content_slide PER DISTINCT reminder topic — never combine unrelated reminders into one slide (e.g. call-out policy is one slide, QA use case template is a separate slide, QA case form/time logging is another slide)
 7. section_slide Monthly Metrics (number: "03", subtitle: "[Month YYYY] regional performance")
 8. content_slide for Metrics table (format: table)
-9. section_slide Shout Outs (number: "04", subtitle: "Recognizing great work across the global team")
-10. content_slide(s) for Kudos (format: kudos, max 9 items per slide)
-11. content_slide for NPS Wins (format: nps_names)
-12. section_slide Celebrations (number: "05", subtitle: "Birthdays and work anniversaries this month")
-13. content_slide for Birthdays & Anniversaries (format: two_columns)
-14. section_slide What's Coming (number: "06", subtitle: "Key dates and focus areas for next month")
-15. content_slide for What's Coming (format: bullets)
-16. closing_slide Questions? (subtitle: "Thank you for everything you do for our clients and each other.")
-17. closing_slide Thank You (subtitle: "LST Global Support Team")
+[EXTRA SECTION — insert here if source material contains a major initiative, project, or topical block substantial enough for its own section. Generate: section_slide numbered "04" + content_slide(s) for it. Renumber subsequent sections accordingly.]
+[NEXT NUMBER] section_slide Shout Outs (subtitle: "Recognizing great work across the global team")
+[NEXT NUMBER+1] content_slide(s) for Kudos (format: kudos, max 9 items per slide)
+[NEXT NUMBER+2] content_slide for NPS Wins (format: nps_names)
+[NEXT NUMBER+3] section_slide Celebrations (subtitle: "Birthdays and work anniversaries this month")
+[NEXT NUMBER+4] content_slide for Birthdays & Anniversaries (format: two_columns). If names/dates not in source, leave items empty and add notes: "EDIT: Add birthdays (left) and anniversaries (right) before presenting."
+[NEXT NUMBER+5, if applicable] content_slide for Personal Milestones (format: bullets) — only if source material mentions personal achievements
+[NEXT NUMBER+6] section_slide What's Coming (subtitle: "Key dates and focus areas for next month")
+[NEXT NUMBER+7] content_slide for What's Coming (format: bullets)
+[last-1] closing_slide Questions? (subtitle: "Thank you for everything you do for our clients and each other.")
+[last] closing_slide Thank You (subtitle: "LST Global Support Team")
 
 Metrics table columns: Region | Utilization (70%) | Phone Accept. (95%) | Chat Accept. (95%) | Email Response (95%) | FCR (70%) | NPS (70)
 Each cell value: "value\\ndelta" — delta prefixed with + or -
@@ -1129,6 +1131,8 @@ STRICT RULES:
 - kicker fields must be ALL-CAPS (e.g. "GENERAL UPDATES", "MONTHLY METRICS").
 - section_slide number field must be zero-padded two digits: "01", "02", etc.
 - section_slide should include a subtitle field with a brief description of what the section covers.
+- Each bullet point must be ≤15 words. If a point needs elaboration, use a sub-bullet (an additional item starting with "  •" indented) underneath — never extend the parent bullet beyond 15 words.
+- Never fabricate names, dates, or metrics not present in the source material. Use a placeholder with a "notes" EDIT instruction instead.
 - Return raw JSON only. Nothing else.`;
 
     systemPrompt = [skill, brand, agent].join('\n\n---\n\n') + baseConstraint + lstConstraint + strictRules;

@@ -47,29 +47,57 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
 | # | Section | Slide type(s) |
 |---|---|---|
 | 1 | Title | `title_slide` — "Monthly Global Support Team Meeting · LST · [Month YYYY]" |
-| 2 | Agenda | `content_slide` — kicker "COMING UP", headline empty, body: bullets listing all 6 sections |
+| 2 | Agenda | `content_slide` — kicker "COMING UP", headline empty, body: agenda format listing all sections (see Agenda slide below) |
 | 3 | Section divider: General Updates | `section_slide` — number "01" |
 | 4–N | General Updates | `content_slide` per topic — company news, recurring processes, AI/tools, SFDC changes, survey data |
 | N+1 | Section divider: Process Reminders | `section_slide` — number "02" |
-| N+2 | Process Reminders | `content_slide` — one bullet per reminder |
+| N+2–N+K | Process Reminders | **one `content_slide` per distinct reminder topic** — never combine all reminders into one slide |
 | M+1 | Section divider: Monthly Metrics | `section_slide` — number "03" |
 | M+2 | Monthly Metrics table | `content_slide` with body `format: "table"` — regional KPIs (see schema below) |
-| M+3 | Section divider: Shout Outs | `section_slide` — number "04" |
-| M+4–P | Kudos slides | `content_slide` with body `format: "kudos"` — ≤9 items per slide |
-| P | NPS Wins | `content_slide` with body `format: "nps_names"` — 3-col name list |
-| P+1 | Section divider: Celebrations | `section_slide` — number "05" |
-| P+2 | Birthdays & Anniversaries | `content_slide` with body `format: "two_columns"` |
-| Q+1 | Section divider: What's Coming | `section_slide` — number "06" |
-| Q+2 | What's Coming | `content_slide` with body `format: "bullets"` |
-| Q+3 | Questions | `closing_slide` — title "Questions?" |
-| Q+4 | Thank You | `closing_slide` — title "Thank You" |
+| [extra] | Extra initiative section (if applicable) | `section_slide` (numbered sequentially) + content slides — see Extra Sections rule below |
+| … | Section divider: Shout Outs | `section_slide` — next available number |
+| … | Kudos slides | `content_slide` with body `format: "kudos"` — ≤9 items per slide |
+| … | NPS Wins | `content_slide` with body `format: "nps_names"` — 3-col name list |
+| … | Section divider: Celebrations | `section_slide` — next available number |
+| … | Birthdays & Anniversaries | `content_slide` with body `format: "two_columns"` |
+| … | Personal Milestones (if applicable) | `content_slide` with body `format: "bullets"` — see Celebrations rule below |
+| … | Section divider: What's Coming | `section_slide` — next available number |
+| … | What's Coming | `content_slide` with body `format: "bullets"` |
+| last-1 | Questions | `closing_slide` — title "Questions?" |
+| last | Thank You | `closing_slide` — title "Thank You" |
+
+### Extra Sections rule
+
+When source material contains a major initiative, project, or topical block that is substantial enough to deserve its own section (e.g. "Project Lightyear", a major product launch, a rebranding), generate:
+1. A dedicated `section_slide` for it, numbered sequentially (e.g. if Metrics is "03", the extra section is "04", then Shout Outs becomes "05", etc.)
+2. One or more `content_slide`s covering the initiative's key points
+3. Place the extra section **after Monthly Metrics and before Shout Outs**
+4. Add the extra section as an additional agenda item in the Agenda slide — do not suppress it
+
+The standard 6 sections are a minimum, not a maximum.
+
+### Process Reminders rule
+
+Generate **one `content_slide` per distinct reminder topic**. Never combine unrelated reminders into one slide. Examples:
+- Attendance / call-out policy → one slide
+- QA use case template → one slide
+- QA case form selections + time logging → one slide (or two if dense)
+
+Each slide gets its own action-title `headline` asserting the key requirement.
+
+### Celebrations rule
+
+1. **Birthdays & Anniversaries**: Use `format: "two_columns"`. If exact names and dates are not in the source material, generate a placeholder slide with `"notes": "EDIT: Add July birthdays (left column) and work anniversaries (right column) before presenting."` Leave items lists empty or as generic placeholders — **never fabricate names**.
+2. **Personal Milestones**: If source material mentions personal achievements (graduations, life events), add a separate `content_slide` with `format: "bullets"` listing each milestone briefly. Use `layout_hint: "two_col"` if 2 parallel groups make sense.
 
 ### Agenda slide
+
+Always include the 6 standard sections. If source material triggers an extra section (see Extra Sections rule), add it as an additional agenda item between Monthly Metrics and Shout Outs.
 
 ```json
 {
   "type": "content_slide",
-  "kicker": "Meeting Agenda",
+  "kicker": "COMING UP",
   "headline": "",
   "body": {
     "format": "agenda",
@@ -77,6 +105,7 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
       {"heading": "General Updates", "detail": "Company Updates & Support Updates"},
       {"heading": "Process Reminders", "detail": "Call Outs & Quality Assurance"},
       {"heading": "Monthly Metrics", "detail": "Global Support Metrics"},
+      {"heading": "[Extra Section Name if applicable]", "detail": "[Brief description]"},
       {"heading": "Shout Outs", "detail": "NPS Wins & Team Recognition"},
       {"heading": "Celebrations", "detail": "Birthdays & Anniversaries"},
       {"heading": "What's Coming", "detail": "Key Dates & Focus Areas"}
@@ -84,6 +113,8 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
   }
 }
 ```
+
+Omit the extra agenda item row if no extra section is warranted.
 
 ### LST-specific body formats
 
@@ -139,8 +170,9 @@ Regions: NA, Noida, EMEA, APAC, All.
 - **No emojis anywhere** — not in section titles, column headers, or body text.
 - **No card grids** — agenda is bullets only; metrics slide is table only.
 - **Restructure, don't transcribe** — source notes → bullet points or tables; one assertion per slide.
+- **Bullet verbosity**: each bullet point must be ≤15 words. If a point needs elaboration, use a **sub-bullet** (indented item) underneath the main point — never extend the parent bullet. Slides assert; presenters elaborate verbally.
+- **Never fabricate** — if names, dates, or metrics are not in the source material, create a placeholder slide and add `"notes": "EDIT: Replace with actual [names/data] before presenting."` Do not invent names.
 - **Kudos**: first name Bold Green, ≤9 per slide. Split across multiple slides if needed.
-- **Birthdays/Anniversaries**: fill in actual names from source; never leave placeholders if data exists.
 - **What's Coming**: include next meeting date, focus topic, and holiday calendar dates for the coming month.
 - **Vary formats within General Updates** — if the section has 3+ content slides, avoid using `bullets` for all of them. When content naturally groups into 2, 3, or 4 parallel items (e.g. three workstream updates, two policy changes side-by-side), use `two_columns` or set `layout_hint: "two_col"` / `"three_col"` / `"four_col"` so the Siemens template applies the appropriate multi-column layout. Sequential steps → `numbered`. A uniform bullet-only General Updates section is always wrong if the content has internal structure.
 
