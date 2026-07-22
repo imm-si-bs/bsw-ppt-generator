@@ -566,7 +566,7 @@
 <!-- ─── HEADER ─────────────────────────────────────────────── -->
 <header>
   <div class="header-left">
-    <div class="header-icon">📊</div>
+    <div class="header-icon">PPT</div>
     <div>
       <div class="header-title">Siemens PPT Generator</div>
       <div class="header-sub">LST Global Support · Siemens / Brightly</div>
@@ -592,48 +592,45 @@
 
   <!-- TIPS PANEL -->
   <details class="tips-panel">
-    <summary>💡 Tips for better results</summary>
+    <summary>Tips for better results</summary>
     <div class="tips-body">
 
-      <div class="tips-section-label">What produces good vs. bad output</div>
+      <div class="tips-section-label">What makes input useful vs. not</div>
       <table class="tips-compare">
         <thead>
           <tr>
-            <th class="good">✅ Good input</th>
-            <th class="bad">❌ Bad input</th>
+            <th class="good">Good input — and why it works</th>
+            <th class="bad">Bad input — and why it fails</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="good">A full meeting transcript — even messy, unformatted notes</td>
-            <td class="bad">"Make me a deck about last month"</td>
+            <td class="good">A full meeting transcript, even messy and unformatted — Claude extracts structure from raw content, not from clean summaries</td>
+            <td class="bad">"Make me a deck about last month" — no content means Claude invents everything, producing generic placeholder slides with no real data</td>
           </tr>
           <tr>
-            <td class="good">A CSV with exact metric values, targets, and month-over-month deltas</td>
-            <td class="bad">Typing numbers into the notes field without column context</td>
+            <td class="good">"Lead with the NPS win, then process reminder, keep it under 15 slides" — explicit ordering and constraints produce a deck with the right emphasis and length</td>
+            <td class="bad">"Make it good" or "use your judgement" is too vague — Claude doesn't know what "good" means in this context, so it defaults to generic structure with no particular emphasis, ordering, or tone</td>
           </tr>
           <tr>
-            <td class="good">"Lead with the NPS win, then process reminder, keep it under 15 slides"</td>
-            <td class="bad">"Make it good" or "use your judgment"</td>
+            <td class="good">Uploading your notes as a file and adding "this is the General Updates content" in the instruction box — Claude knows exactly where to place it and how to treat it</td>
+            <td class="bad">Pasting all your content into one text box with no labels — Claude can't distinguish what belongs in General Updates vs. What's Coming vs. Shout Outs</td>
           </tr>
           <tr>
-            <td class="good">Uploading the raw notes file and using the instruction box to say what section it belongs to</td>
-            <td class="bad">Pasting everything into one box with no labels or context</td>
-          </tr>
-          <tr>
-            <td class="good">"Audience is 40 global support reps — casual tone, motivating, 20-min runtime"</td>
-            <td class="bad">No audience or tone context</td>
+            <td class="good">"Audience is 40 global support reps — casual tone, motivating, 20-min runtime" — tone and audience shape word choice, slide density, and what Claude leads with</td>
+            <td class="bad">No audience or tone context — Claude defaults to neutral formal language that may not fit a team meeting intended to motivate and recognize people</td>
           </tr>
         </tbody>
       </table>
 
+      <div class="tips-section-label" style="margin-top:20px;">Prompt examples</div>
       <div class="tips-example">
-        <div class="ex-label bad">✗ Bad prompt</div>
-        <div class="ex-text">"Create slides for the July support team meeting"</div>
+        <div class="ex-label bad">Weak — no content, no direction</div>
+        <div class="ex-text">"Create slides for the July support team meeting"<br><br>Result: Claude fills every section with invented placeholder text. Nothing is specific to your team, your metrics, or this month.</div>
       </div>
       <div class="tips-example" style="margin-top:8px;">
-        <div class="ex-label good">✓ Good prompt</div>
-        <div class="ex-text">"July 2026 LST Global Support Team Meeting. Audience: 40 reps across NA, EMEA, APAC, Noida. Lead with the NPS improvement (71 this month, up from 68). Remind team about new escalation policy effective Aug 1. Shout out Jane D. in EMEA for the ServiceNow migration win. Keep it upbeat — 20 min runtime."</div>
+        <div class="ex-label good">Strong — specific content, clear priorities, defined audience</div>
+        <div class="ex-text">"July 2026 LST Global Support Team Meeting. Audience: 40 reps across NA, EMEA, APAC, Noida. Lead with the NPS improvement (71 this month, up from 68). Remind team about new escalation policy effective Aug 1. Shout out Jane D. in EMEA for the ServiceNow migration win. Keep it upbeat — 20 min runtime."<br><br>Result: Claude knows what to prioritize, what tone to use, what real data to pull in, and how long the deck should run.</div>
       </div>
 
     </div>
@@ -694,9 +691,8 @@
       <!-- File upload — moved to top of Section B -->
       <div class="field-with-tip">
         <div class="field-tip-callout">
-          <div class="ftc-title">📎 File tips</div>
-          <strong>Upload a metrics CSV</strong> — Claude reads numbers more reliably from a structured file than from typed values.<br><br>
-          <strong>Add per-file instructions</strong> after uploading — e.g. "this is July metrics" or "these are transcripts from the past 4 weeks".
+          <div class="ftc-title">File tips</div>
+          <strong>Add a note to each file after uploading.</strong> Without context, Claude has to guess what a file is and where its content belongs. A short instruction like "this is the July metrics CSV — use it for the Monthly Metrics slide" or "these are the past 4 weeks of support call transcripts — pull shout-out quotes from them" tells Claude exactly how to use the file and prevents it from misapplying the content.
         </div>
         <div class="field">
           <label>Supporting files <span class="opt">(optional)</span></label>
@@ -723,12 +719,12 @@
 
       <div class="field-with-tip">
         <div class="field-tip-callout">
-          <div class="ftc-title">💡 More context = better deck</div>
-          Include your audience, any specific messages to land, tone, and what you want to lead with. There's no such thing as too much context here.
+          <div class="ftc-title">Direction tips</div>
+          Think of this as a briefing, not a description. The strongest inputs name a specific win to lead with, call out what to emphasize or cut, and say how the deck should feel — e.g. "keep it upbeat, 20 min" or "formal tone, exec audience." Claude takes explicit direction literally, so the more specific your instruction, the less it has to invent.
         </div>
         <div class="field">
           <label for="goals">What should this deck cover? <span class="req">*</span></label>
-          <p class="field-hint">Describe the deck's purpose and key themes. Include: intended audience, any specific messages to land, tone (formal/casual), and anything Claude should prioritize. The more specific, the better.</p>
+          <p class="field-hint">Describe the deck's purpose and audience. Include: specific messages to land, tone (formal/casual), what to lead with, intended runtime, slide count if you have a target, and anything Claude should prioritize or avoid.</p>
           <textarea id="goals" rows="4"
             placeholder="e.g. &quot;July 2026 LST monthly meeting. Audience: 40 global support reps. Big NPS win in APAC this month — lead with that. Need a process reminder about timesheet compliance by Friday. All-hands scheduled for Aug 5. Keep it upbeat, ~20 min runtime.&quot;"></textarea>
           <div class="field-error" id="goals-err"></div>
@@ -737,12 +733,12 @@
 
       <div class="field-with-tip">
         <div class="field-tip-callout">
-          <div class="ftc-title">📋 Paste it messy</div>
-          Paste transcripts verbatim — Claude extracts structure from unedited text. No need to clean it up first.
+          <div class="ftc-title">Source material tips</div>
+          Resist the urge to summarize before pasting. A cleaned-up summary loses the specific names, numbers, and quotes that make slides credible. The raw transcript — with filler words, crosstalk, and all — gives Claude more to work with, not less. It will discard what's irrelevant and extract what matters.
         </div>
         <div class="field">
           <label for="raw-notes">Raw notes, emails, or transcripts <span class="opt">(optional)</span></label>
-          <p class="field-hint">Paste verbatim source material here — a meeting transcript, email thread, bullet dump, anything word-for-word. Claude will extract and restructure it. No need to clean it up first; messy text is fine.</p>
+          <p class="field-hint">Paste verbatim source material — meeting transcripts (if they're in a file form, drop them above), email threads, personal notes (bullet dumps that potentially include more nuance/context). Claude will extract and restructure it. No need to clean it up first.</p>
           <textarea id="raw-notes" rows="7"
             placeholder="Paste any raw source material here — Claude will pull out what's relevant and ignore the rest."></textarea>
           <div class="field-error" id="notes-err"></div>
@@ -751,12 +747,12 @@
 
       <div class="field-with-tip">
         <div class="field-tip-callout">
-          <div class="ftc-title">🗂 Section outline tip</div>
-          Use this field when you know exactly what you want in a specific slide. Tell Claude where it goes, the format you want, and whether to use your notes <em>verbatim</em> or embellish them.
+          <div class="ftc-title">Section outline tips</div>
+          Say <em>verbatim</em> if you want your wording preserved exactly — Claude will use it as-is and only fix formatting. Say <em>embellish</em> if you want Claude to rewrite it in presentation style. If you don't specify, Claude will lightly polish (grammar, action titles) without changing the substance. You can also specify the slide format: bullets, table, two columns, etc.
         </div>
         <div class="field">
           <label for="section-outline">Already have notes for a specific section? <span class="opt">(optional)</span></label>
-          <p class="field-hint">Paste an outline or notes about your section of the PowerPoint. Try to include: where it should go (<em>General Updates, Process Reminders, Metrics, Shoutouts/Celebrations,</em> or <em>What's Coming</em>); the format you want (bullet points, columns, a table); whether your notes should be used <em>verbatim</em> or <em>embellished</em> into presentation style; and any other specifications.</p>
+          <p class="field-hint">Paste notes for a specific slide or section. Include: which section it belongs to (<em>General Updates, Process Reminders, Metrics, Shout Outs, Celebrations,</em> or <em>What's Coming</em>); the slide format you want; and whether to use your content <em>verbatim</em> or rewrite it into presentation style.</p>
           <textarea id="section-outline" rows="8"
             placeholder="e.g. 'Process Reminders section — 3 bullet points — verbatim: (1) Submit timesheets by Friday EOD. (2) Flag duplicate cases in Salesforce before closing. (3) All escalations need manager approval.'"></textarea>
         </div>
