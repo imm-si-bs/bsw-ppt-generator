@@ -46,7 +46,7 @@ Save local builds to: `~/Desktop/LST-Monthly-Siemens-YYYY-MM.pptx`
 
 | # | Section | Slide type(s) |
 |---|---|---|
-| 1 | Title | `title_slide` — "Monthly Global Support Team Meeting · LST · [Month YYYY]" |
+| 1 | Title | `title_slide` — title: "Monthly Global Support Team Meeting", subtitle: "LST · [Month YYYY]". Do NOT populate the `meta` field — omit it or leave it blank. The meta field is not rendered visibly. |
 | 2 | Agenda | `content_slide` — kicker "COMING UP", headline empty, body: agenda format listing all sections (see Agenda slide below) |
 | 3 | Section divider: General Updates | `section_slide` — number "01" |
 | 4–N | General Updates | `content_slide` per topic — company news, recurring processes, AI/tools, SFDC changes, survey data |
@@ -87,7 +87,7 @@ Each slide gets its own action-title `headline` asserting the key requirement.
 
 ### Celebrations rule
 
-1. **Birthdays & Anniversaries**: Use `format: "two_columns"`. If exact names and dates are not in the source material, generate a placeholder slide with `"notes": "EDIT: Add July birthdays (left column) and work anniversaries (right column) before presenting."` Leave items lists empty or as generic placeholders — **never fabricate names**.
+1. **Birthdays & Anniversaries**: Use `format: "two_columns"`. If exact names and dates are not in the source material, set `left_items` and `right_items` to **empty arrays `[]`** and add `"notes": "EDIT: Add July birthdays (left column) and work anniversaries (right column) before presenting."` Do **not** write "None this month" or any placeholder text into the items arrays — leave them empty so the presenter can fill them in. Never fabricate names.
 2. **Personal Milestones**: If source material mentions personal achievements (graduations, life events), add a separate `content_slide` with `format: "bullets"` listing each milestone briefly. Use `layout_hint: "two_col"` if 2 parallel groups make sense.
 
 ### Agenda slide
@@ -175,6 +175,7 @@ Regions: NA, Noida, EMEA, APAC, All.
 - **Kudos**: first name Bold Green, ≤9 per slide. Split across multiple slides if needed.
 - **What's Coming**: include next meeting date, focus topic, and holiday calendar dates for the coming month.
 - **Vary formats within General Updates** — if the section has 3+ content slides, avoid using `bullets` for all of them. When content naturally groups into 2, 3, or 4 parallel items (e.g. three workstream updates, two policy changes side-by-side), use `two_columns` or set `layout_hint: "two_col"` / `"three_col"` / `"four_col"` so the Siemens template applies the appropriate multi-column layout. Sequential steps → `numbered`. A uniform bullet-only General Updates section is always wrong if the content has internal structure.
+- **Key date timelines** — when a slide lists multiple dated events in sequence (e.g. rebrand rollout milestones), use `format: "two_columns"` with left column = dates and right column = event descriptions, OR use `format: "bullets"` where each bullet is "Date — Event" on a single line. Do NOT use `numbered` for date timelines because numbered lists imply ordinal ranking, and sub-bullets under a numbered item render poorly. Each date+event pairing must fit on one line (≤15 words combined).
 
 ### Topic placement rule
 

@@ -1078,7 +1078,7 @@ The JSON schema:
     const lstConstraint = pptType === 'lst-meeting' ? `
 
 Fixed deck section order (follow exactly):
-1. title_slide
+1. title_slide — title: "Monthly Global Support Team Meeting", subtitle: "LST · [Month YYYY]". Leave the meta field blank or omit it — it is internal metadata only and must NOT appear as visible text on the slide.
 2. Agenda content_slide (kicker: "COMING UP", headline: "", format: agenda). Always include the 6 standard items below. If source material contains a major initiative warranting its own section, add it as an extra agenda item between Monthly Metrics and Shout Outs:
    Standard items: [{"heading":"General Updates","detail":"Company Updates & Support Updates"},{"heading":"Process Reminders","detail":"Call Outs & Quality Assurance"},{"heading":"Monthly Metrics","detail":"Global Support Metrics"},{"heading":"Shout Outs","detail":"NPS Wins & Team Recognition"},{"heading":"Celebrations","detail":"Birthdays & Anniversaries"},{"heading":"What's Coming","detail":"Key Dates & Focus Areas"}]
 3. section_slide General Updates (number: "01", subtitle: "Company news, initiatives, and key changes")
@@ -1092,7 +1092,7 @@ Fixed deck section order (follow exactly):
 [NEXT NUMBER+1] content_slide(s) for Kudos (format: kudos, max 9 items per slide)
 [NEXT NUMBER+2] content_slide for NPS Wins (format: nps_names)
 [NEXT NUMBER+3] section_slide Celebrations (subtitle: "Birthdays and work anniversaries this month")
-[NEXT NUMBER+4] content_slide for Birthdays & Anniversaries (format: two_columns). If names/dates not in source, leave items empty and add notes: "EDIT: Add birthdays (left) and anniversaries (right) before presenting."
+[NEXT NUMBER+4] content_slide for Birthdays & Anniversaries (format: two_columns). If names/dates not in source material, set left_items and right_items to empty arrays [] — do NOT write "None this month" — and add notes: "EDIT: Add July birthdays (left column) and anniversaries (right column) before presenting."
 [NEXT NUMBER+5, if applicable] content_slide for Personal Milestones (format: bullets) — only if source material mentions personal achievements
 [NEXT NUMBER+6] section_slide What's Coming (subtitle: "Key dates and focus areas for next month")
 [NEXT NUMBER+7] content_slide for What's Coming (format: bullets)
@@ -1549,9 +1549,9 @@ function buildTextBox(id, name, x, y, w, h, txBodyInner) {
 function ooxmlTitleSlide(s) {
   const title = buildPh(2, 'Title', 'title', null,
     buildPara(buildRun(s.title || '', { schemeColor: 'tx1' })));
+  // meta is internal deck metadata only — not rendered as visible text on the slide
   const sub = buildPh(3, 'Subtitle', 'subTitle', 1,
-    (s.subtitle ? buildPara(buildRun(s.subtitle)) : '') +
-    (s.meta     ? buildPara(buildRun(s.meta, { color: '009999' })) : ''));
+    (s.subtitle ? buildPara(buildRun(s.subtitle)) : ''));
   return `${xmlDecl()}<p:sld ${SLD_NS}><p:cSld><p:spTree>${GRP_HEADER}${title}${sub}</p:spTree></p:cSld>${CLR_MAP}</p:sld>`;
 }
 
@@ -2045,13 +2045,7 @@ function buildTitleSlide(pptx, s, meta) {
     });
   }
 
-  // Meta line — Petrol
-  if (s.meta) {
-    slide.addText(s.meta, {
-      x: DIM.ML, y: 4.60, w: 6.80, h: 0.35,
-      fontSize: 12, color: C.PETROL, fontFace: 'Arial', bold: true, align: 'left',
-    });
-  }
+  // meta field is internal deck metadata only — not rendered as visible text
 
   addFooter(slide, null, meta);
   addWordmark(slide);
