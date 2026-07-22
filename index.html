@@ -1133,6 +1133,7 @@ STRICT RULES:
 - section_slide should include a subtitle field with a brief description of what the section covers.
 - Each bullet point must be ≤15 words. If a point needs elaboration, use a sub-bullet (an additional item starting with "  •" indented) underneath — never extend the parent bullet beyond 15 words.
 - Never fabricate names, dates, or metrics not present in the source material. Use a placeholder with a "notes" EDIT instruction instead.
+- For two_columns slides (birthdays/anniversaries): when names are not in source material, set left_items and right_items to empty arrays [] — do NOT write "None this month" or any filler text in the arrays. An empty array means the slide renders with just the column headers and blank space for the presenter to fill in.
 - Return raw JSON only. Nothing else.`;
 
     systemPrompt = [skill, brand, agent].join('\n\n---\n\n') + baseConstraint + lstConstraint + strictRules;
@@ -2184,11 +2185,27 @@ function buildBullets(slide, s, pptx, numbered) {
   // Each item needs breakLine:true so PptxGenJS emits a paragraph break,
   // not an inline run — without it all items render on one line.
   const runs = [];
+  let numberedIdx = 0;
   items.forEach((item, i) => {
-    const prefix = numbered ? `${i + 1}.  ` : '•  ';
+    // Detect sub-bullets: items starting with "  •", "• ", or leading whitespace+bullet
+    const isSub = !numbered && /^\s*[•\-]\s/.test(item);
+    const cleanItem = isSub ? item.replace(/^\s*[•\-]\s*/, '') : item;
+    let prefix;
+    if (isSub) {
+      prefix = '      ◦  '; // indented sub-bullet
+    } else if (numbered) {
+      numberedIdx++;
+      prefix = `${numberedIdx}.  `;
+    } else {
+      prefix = '•  ';
+    }
     runs.push({
-      text: prefix + item,
-      options: { fontSize: 13, color: C.GRAY, fontFace: 'Arial', breakLine: true, paraSpaceAfter: 6 },
+      text: prefix + cleanItem,
+      options: {
+        fontSize: isSub ? 12 : 13,
+        color: C.GRAY, fontFace: 'Arial', breakLine: true,
+        paraSpaceAfter: isSub ? 3 : 6,
+      },
     });
   });
   slide.addText(runs, {
