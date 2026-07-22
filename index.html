@@ -2187,8 +2187,8 @@ function buildBullets(slide, s, pptx, numbered) {
   const runs = [];
   let numberedIdx = 0;
   items.forEach((item, i) => {
-    // Detect sub-bullets: items starting with "  •", "• ", or leading whitespace+bullet
-    const isSub = !numbered && /^\s*[•\-]\s/.test(item);
+    // Detect sub-bullets: items starting with whitespace+bullet, "• ", or a lone bullet char
+    const isSub = !numbered && /^(\s+[•·\-]|[•·]\s)/.test(item);
     const cleanItem = isSub ? item.replace(/^\s*[•\-]\s*/, '') : item;
     let prefix;
     if (isSub) {
@@ -2342,8 +2342,11 @@ function buildTwoColumns(slide, s, pptx) {
   const body = s.body ?? {};
   const leftH  = body.left_header  ?? 'Birthdays';
   const rightH = body.right_header ?? 'Anniversaries';
-  const leftI  = body.left_items   ?? [];
-  const rightI = body.right_items  ?? [];
+  // Filter out placeholder text the agent sometimes inserts when names aren't available
+  const placeholderRe = /^(none|n\/a|tbd|placeholder|to be|add |edit:)/i;
+  const filterItems = arr => (arr ?? []).filter(item => !placeholderRe.test(String(item).trim()));
+  const leftI  = filterItems(body.left_items);
+  const rightI = filterItems(body.right_items);
 
   const buildCol = (header, items, color) => {
     const arr = [
@@ -2352,9 +2355,7 @@ function buildTwoColumns(slide, s, pptx) {
     items.forEach(item => {
       arr.push({ text: '• ' + item, options: { color: C.GRAY, fontSize: 12, fontFace: 'Arial', breakLine: true, paraSpaceAfter: 4 } });
     });
-    if (!items.length) {
-      arr.push({ text: 'None this month', options: { color: C.GRAY, fontSize: 12, fontFace: 'Arial', italic: true, breakLine: true } });
-    }
+    // When empty, leave blank — presenter fills in; speaker notes provide guidance
     return arr;
   };
 
