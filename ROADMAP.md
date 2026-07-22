@@ -63,72 +63,35 @@ The app is a single `index.html` (no build, no server, GitHub Pages). Behaviour 
 ### Goal
 Lower the barrier for non-technical users to provide good inputs. The file upload zone should be the first thing users see in Section B. Every important field needs guidance text, not just placeholder text.
 
-### Step-by-step implementation
+### What was built ✅
 
-**Step 1 — Reorder Section B fields** (`index.html` HTML only)
-
-Move the file upload zone (`#upload-zone`, `#file-chips`, `#fileInput`) from its current position (after all three textareas) to **the top of Section B**, before the goals textarea. New order:
-
+**Section B field order** (top to bottom):
 ```
 Section B
-  ├── [File uploads zone]          ← MOVE HERE (currently last)
-  ├── What should this deck cover? (goals)
+  ├── Supporting files (upload zone)   ← moved to top
+  ├── What should this deck cover?     (goals)
   ├── Raw notes, emails, or transcripts (raw-notes)
   └── Already have notes for a specific section? (section-outline)
 ```
 
-No JS changes needed — the file handling code references elements by ID, not position.
+**Field hints** added to all Section B fields. Each field has a `<p class="field-hint">` below the label, and a paired `field-tip-callout` sidebar with distinct, non-redundant advice:
 
-**Step 2 — Add field-hint blocks to goals and raw-notes** (`index.html` HTML only)
+- **Supporting files** — field hint describes accepted file types and instructs users to add per-file notes; sidebar explains *why* context matters (Claude can't tell what a file is or where it belongs without it)
+- **What should this deck cover?** — field hint covers purpose, audience, tone, what to lead with, runtime, and slide count; sidebar focuses on how to give direction like a briefing (name a win, specify ordering and feel)
+- **Raw notes / transcripts** — field hint covers what to paste and where file-form transcripts should go instead; sidebar explains *why* raw text beats a cleaned-up summary (specific names, numbers, quotes survive; summaries lose them)
+- **Section outline** — field hint covers which section to name, format choice, and verbatim vs. embellish; sidebar explains the verbatim/embellish/default distinction specifically
 
-Add a `<p class="field-hint">` guidance block above each textarea (matching the existing pattern on `section-outline`):
+**Collapsible "Tips for better results" panel** at the top of the form (collapsed by default):
 
-- **goals field-hint**: "Describe the purpose and key themes of this deck. Include: intended audience, any specific messages to land, tone (formal/casual), and anything Claude should prioritize. Example: 'Monthly support team meeting for 40 people globally. Lead with the NPS improvement win. Remind team about escalation policy change. Keep it energizing.'"
-- **raw-notes field-hint**: "Paste any raw source material here — meeting transcript, bullet notes, emails, Slack threads. Claude will extract and restructure it. The more context you provide, the better the output. No need to clean it up first."
-- **file upload field-hint** (add above the zone): "Upload supporting files — metrics CSVs, transcripts (.txt/.md/.docx), existing decks (.pptx). For best results, tell Claude what each file contains using the instruction box that appears after upload."
+- Good/bad input comparison table — each row includes a reason *why* it works or fails, not just an example label
+- Prompt examples with "Result:" lines — shows what Claude actually produces in each case, not just what the prompt looks like
+- No emojis anywhere in the tips panel or field callouts
 
-**Step 3 — Add a collapsible "Tips for better results" panel** (`index.html` HTML + CSS)
-
-Add a `<details>` element at the top of the form (above both section cards) with a `<summary>` label "💡 Tips for better results". Collapsed by default. Contains two subsections:
-
-**Subsection 1 — "What produces good vs. bad output"** (the most important part)
-
-A two-column comparison table:
-
-| ✅ Good input | ❌ Bad input |
-|---|---|
-| A full meeting transcript (even messy) | "Make me a deck about last month" |
-| A CSV with exact metric values and targets | Typing numbers into the notes field manually |
-| "Lead with the NPS win, then process reminder, keep it under 15 mins" | "Make it good" |
-| Uploading the raw notes doc + telling Claude what section it belongs to | Pasting everything into one box with no labels |
-| "Audience is 40 global support reps — casual tone, motivating" | No audience context |
-
-Example bad → good transformation to show inline:
-- **Bad**: `"Create slides for the July support team meeting"`
-- **Good**: `"July 2026 LST Global Support Team Meeting. Audience: 40 reps across NA, EMEA, APAC, Noida. Lead with the NPS improvement (71 this month, up from 68). Remind team about new escalation policy. Shout out Jane D. in EMEA. Keep it upbeat — 20 min runtime."`
-
-**Subsection 2 — "Quick tips"** (compact bullet list)
-- Upload a metrics CSV — Claude reads numbers more reliably than typed values
-- Paste meeting transcripts verbatim — Claude extracts structure from messy text
-- Use the "Section Outline" field if you already know the structure
-- Add per-file instructions after uploading (e.g., "this is the metrics data for July")
-- The more context the better — there is no such thing as too much source material
-
-This is purely HTML/CSS — no API impact.
-
-**Step 4 — Improve file upload zone visual prominence** (`index.html` CSS only)
-
-The upload zone currently has a dashed border and sits at the bottom where users miss it. After moving to the top, increase its visual weight: larger min-height, upload icon SVG, stronger call-to-action text ("Drop files here or click to browse — transcripts, CSVs, notes, existing decks"). Consider a subtle teal tint on hover.
+**Removed from tips panel:**
+- "Upload a metrics CSV" row (originally in the good/bad table) — removed because the file upload field hint now handles CSV-specific guidance in context
 
 ### Files modified
-- `index.html` — HTML structure reorder (Section B), field-hint paragraph additions, upload zone CSS, collapsible tips panel
-
-### Verification
-1. Load the app in a browser; confirm file upload zone appears immediately when Section B is visible
-2. Confirm all three new field-hint blocks render below their labels
-3. Confirm the tips panel is collapsed by default and expands on click
-4. Upload a file and confirm extraction still works correctly (no regression from DOM reorder)
-5. Generate a deck and confirm the full pipeline still works
+- `index.html` — Section B field reorder, field-hint blocks, field-tip-callout sidebars, collapsible tips panel, upload zone visual improvements
 
 ---
 
